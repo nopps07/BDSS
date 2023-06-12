@@ -1,4 +1,896 @@
-# Assignment 3
+### Assignment 3
 
 
-# Sentiment Analysis
+############
+# library  #
+############
+
+library(rscopus)
+library(dplyr)
+library(rvest)
+library(tm)
+library(topicmodels)
+library(reshape2)
+library(ggplot2)
+library(wordcloud)
+library(pals)
+library(SnowballC)
+library(lda)
+library(ldatuning)
+library(readr)
+library(lubridate)
+library(plotly)
+library(zoo)
+library(tidytext)
+library(dplyr)
+library(textdata)
+library(vader)
+library(tidytext)
+library(syuzhet)
+
+
+################################
+# Data Preparation + Cleaning  #
+################################
+
+# Specify the URL of the Wikipedia page
+url <- "https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pageuntil=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages"
+url2 <- "https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages"
+url3 <- "https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Wolfram%2C+Stephen%0AStephen+Wolfram#mw-pages"
+
+# Read the HTML content of the page
+page <- read_html(url)
+page2 <- read_html(url2)
+page3 <- read_html(url3)
+
+# Scrape the researcher names
+researchers1 <- page %>%
+  html_nodes(".mw-category-group li a") %>%
+  html_text()
+
+researchers2 <- page2 %>%
+  html_nodes(".mw-category-group li a") %>%
+  html_text()
+
+researchers3 <- page3 %>%
+  html_nodes(".mw-category-group li a") %>%
+  html_text()
+
+# Print the list of researchers
+researchers1 = researchers1[9:207]
+researchers2 = researchers2[9:207]
+researchers3 = researchers3[9:26]
+all_researchers = c(researchers1, researchers2, researchers3)
+
+# Clean names
+clean_names <- gsub("\\(.*\\)", "", all_researchers)  # Remove text within brackets
+clean_names <- trimws(clean_names)  # Remove leading/trailing white spaces
+print(clean_names)
+
+#file.edit("~/.Renviron")
+set.seed(123)
+for (i in 1:length(clean_names)) {
+  name <- clean_names[i]
+  # Extract last name and first name
+  name_parts <- strsplit(name, " ")[[1]]
+  last <- name_parts[length(name_parts)]
+  first <- paste(name_parts[-length(name_parts)], collapse = " ")
+  
+  if (grepl("\\.", first)) {
+    # Handle cases where last name is separated by a space
+    split_name <- strsplit(first, "\\. ")[[1]]
+    first <- paste(split_name[-length(split_name)], collapse = " ")
+    last <- split_name[length(split_name)]
+  }
+  
+  # Iteration
+  tryCatch({
+    if (have_api_key()) {
+      res <- author_df(last_name = last, first_name = first, verbose = FALSE, general = FALSE)
+      names(res)
+      
+      # Extract doi
+      doi <- res$doi
+      
+      # Save the info
+      result <- res[, c("title", "journal", "description", "cover_date", "first_name", "last_name")]
+      result$doi <- doi
+      
+      results[[i]] <- result  # Save the result for this author in the list
+    }
+  }, error = function(e) {
+    cat("Error occurred for author:", name, "\n")
+  })
+}
+
+# Merge all the results into a single data frame
+merged_results <- do.call(rbind, results)
+merged_results_noNA <- merged_results[complete.cases(merged_results$doi), ]
+
+# Create an empty list to store the abstracts
+abstracts <- list()
+
+for (doi in merged_results_noNA$doi) {
+  if (!is.null(api_key)) {
+    tryCatch({
+      # Retrieve the abstract using the DOI
+      abstract <- abstract_retrieval(doi, identifier = "doi", view = "FULL", verbose = FALSE)
+      
+      # Save the abstract in the list
+      abstracts[[doi]] <- abstract$content$`abstracts-retrieval-response`$item$bibrecord$head$abstracts
+    }, error = function(e) {
+      cat("Error occurred for DOI:", doi, "\n")
+    })
+  }
+}
+
+# Merge the individual abstracts into a data frame
+merged_abstracts <- data.frame(doi = names(abstracts), abstract = unlist(abstracts))
+# Merge the abstracts and results based on DOI
+merged_data <- merge(merged_abstracts, merged_results_noNA, by = "doi", all.x = TRUE)
+# Select the desired columns
+merged_data <- merged_data[, c("doi", "abstract", "title", "journal", "description","cover_date", "first_name", "last_name")]
+
+## Final Filtering 
+keywords <- c("artificial intelligence", "AI", "Machine Learning", "ML", "deep learning")
+scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data$abstract), ]
+
+## Load data
+scopus <- read.csv('data/scopus.csv')
+scopus$cover_date <- as.Date(scopus$cover_date, format = "%m/%d/%Y")
+head(scopus)
+
+# Loop through the texts in the abstract column
+for(i in 1:nrow(scopus)){
+  abstract <- scopus$abstract[i]
+  no_copyright <- str_replace(abstract,"© \\d{4}, .* All rights reserved.", "")
+  no_copyright <- str_replace(abstract,"© \\d{4}", "")
+  # create a text corpus
+  corpus <- Corpus(VectorSource(no_copyright))
+  
+  # preprocess text
+  corpus_clean <- corpus %>%
+    tm_map(content_transformer(tolower)) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("en")) %>%
+    tm_map(stripWhitespace)
+  
+  abstract_clean <- as.character(corpus_clean[[1]])
+  
+  # replace the abstract with the cleaned version
+  scopus$abstract[i] <- abstract_clean
+}
+write.csv(scopus, "data/scopus_cleaned.csv", row.names = FALSE)
+
+scopus <- read.csv('data/scopus_cleaned.csv')
+scopus$cover_date <- as.Date(scopus$cover_date, format = "%m/%d/%Y")
+head(scopus)
+
+arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
+head(arxiv)
+
+# Loop through the texts in the abstract column
+for(i in 1:nrow(arxiv)){
+  abstract <- arxiv$abstract[i]
+  # create a text corpus
+  corpus <- Corpus(VectorSource(abstract))
+  
+  # preprocess text
+  corpus_clean <- corpus %>%
+    tm_map(content_transformer(tolower)) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("en")) %>%
+    tm_map(stripWhitespace)
+  
+  abstract_clean <- as.character(corpus_clean[[1]])
+  
+  # replace the abstract with the cleaned version
+  arxiv$abstract[i] <- abstract_clean
+}
+
+arxiv$vader_sen <- NA
+
+for (i in 1:nrow(arxiv)) {
+  vader_sentiment <- get_vader(arxiv$abstract[i])[2]
+  arxiv$vader_sen[i] <- vader_sentiment
+}
+
+# Add a new column called 'abstract_sen' to the 'data_test_cleaned' dataframe
+arxiv$nrc_sen <- NA
+
+# Loop through each row of the dataframe and calculate the sentiment score for the abstract
+for (i in 1:nrow(arxiv)) {
+  nrc_sentiment <- get_sentiment(arxiv$abstract[i], method="syuzhet")
+  arxiv$nrc_sen[i] <- nrc_sentiment
+}
+
+arxiv <- read_csv("data/arxiv_sentiments.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
+
+
+###############################
+#  Exploratory Data Analysis  #
+###############################
+
+## Scopus
+
+# Create a new column with the year of the cover date
+scopus$year <- format(scopus$cover_date, "%Y")
+# Create a histogram of the amount of articles per year
+plot_ly(scopus, x = ~year, type = "histogram") %>%
+  layout(title = "Amount of Articles per Year", xaxis = list(title = "Year"), yaxis = list(title = "Count"))
+
+# Group the data by author and count the number of articles
+author_counts <- scopus %>%
+  group_by(last_name, first_name) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count)) %>%
+  head(30)
+# Combine first_name and last_name to a single column for the plot
+author_counts <- author_counts %>%
+  mutate(author = paste(first_name, last_name)) %>%
+  arrange(desc(count))  # Ensure the data frame is sorted by count
+# Convert the author column to a factor and specify the levels to match the order in the data frame
+author_counts$author <- factor(author_counts$author, levels = author_counts$author)
+# Create a barplot of the top 20 authors
+plot_ly(author_counts, x = ~author, y = ~count, type = "bar") %>%
+  layout(title = "Top 30 Authors by Article Count", xaxis = list(title = "Author"), yaxis = list(title = "Count"))
+
+# Order the data by count
+desc_counts <- scopus %>%
+  group_by(description) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count))
+# Create a factor variable with the ordered descriptions
+desc_counts$description <- factor(desc_counts$description, levels = desc_counts$description)
+# Create a barplot of the ordered descriptions
+plot_ly(desc_counts, x = ~description, y = ~count, type = "bar") %>%
+  layout(title = "Description Barplot", xaxis = list(title = "Description"), yaxis = list(title = "Count"))
+
+## Arxiv
+# Create a histogram of the amount of articles per year with padding
+plot_ly(arxiv, x = ~year, type = "histogram") %>%
+  layout(title = "Amount of Articles per Year", xaxis = list(title = "Year", automargin = TRUE), yaxis = list(title = "Count", automargin = TRUE, margin = list(l = 50, r = 50, b = 50, t = 50, pad = 4)), bargap = 0.1)
+
+
+########################
+#  Sentiment Analysis  #
+########################
+### Scopus
+scopus <- read.csv('data/scopus_cleaned.csv')
+scopus <- scopus[, -10]
+scopus$cover_date <- as.Date(scopus$cover_date, format = "%Y-%m-%d")
+scopus <- scopus[scopus$cover_date >= as.Date("1970-01-01"),]
+head(scopus)
+
+# Add a new column called 'abstract_sen' to the 'scopus' dataframe
+scopus$abstract_sen <- NA
+# Loop through each row of the dataframe and calculate the sentiment score for the abstract
+for (i in 1:nrow(scopus)) {
+  sentiment <- get_sentiment(scopus$abstract[i], method="syuzhet")
+  scopus$abstract_sen[i] <- sentiment
+}
+
+# Calculate the average sentiment score per year
+scopus_avg <- aggregate(scopus$abstract_sen, by=list(scopus$date), FUN=mean)
+colnames(scopus_avg) <- c("Year", "Avg_Sentiment")
+
+# Create a plotly line chart of the average sentiment score per year
+plot_ly(scopus_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines+markers') %>%
+  layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
+
+# Order the data by cover_date
+scopus <- scopus[order(scopus$cover_date),]
+
+# Calculate the rolling average of abstract_sen with a window of 2 months
+scopus$rolling_avg <- rollmean(scopus$abstract_sen, k = 60, fill = NA, align = "right")
+
+# Create a plotly line chart of the rolling average sentiment score per cover date
+plot_ly(scopus, x = ~cover_date, y = ~rolling_avg, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Rolling Average Sentiment Score per Cover Date", xaxis = list(title = "Cover Date"), yaxis = list(title = "Rolling Average Sentiment Score")) 
+
+
+### Arxiv
+# Calculate the average sentiment score per year
+arxiv$update_date <- as.Date(arxiv$update_date)
+arxiv$year <- year(arxiv$update_date)
+
+arxiv_avg <- aggregate(arxiv$nrc_sen, by=list(arxiv$year), FUN=mean)
+colnames(arxiv_avg) <- c("Year", "Avg_Sentiment")
+
+# Create a plotly line chart of the average sentiment score per year
+plot_ly(arxiv_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines+markers') %>%
+  layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
+### increase over time
+
+# Convert update_date to Date class
+arxiv$update_date <- as.Date(arxiv$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+arxiv_filtered <- arxiv %>%
+  filter(update_date >= start_date & update_date <= end_date)
+
+# Calculate the average sentiment score per day
+arxiv_avg_nrc <- aggregate(arxiv_filtered$nrc_sen, by=list(arxiv_filtered$update_date), FUN=mean)
+colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 14, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '14-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+### We can see that after the release of ChatGPT there is a slightly increasing trend. Meaning that writers are producing more ‘positive’ articles than before. Note that the sentiments have been computed using the NRC lexicon.
+
+
+#####################
+#  Deeper Analysis  #
+#####################
+
+# Filter the data to include only the article from May 13, 2022
+article_may_13 <- arxiv_filtered %>%
+  filter(update_date == as.Date("2022-05-01"))
+
+# Display the article
+print(article_may_13$abstract)
+
+# Get sentiment of the abstract
+article_may_13$sentiment <- get_sentiment(article_may_13$abstract)
+
+# Display the sentiment score
+print(article_may_13$sentiment)
+
+#Using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC (syuzhet) lexicon has more matches.
+#According to ChatGPT, recommended lexicons for research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let’s try VADER and Sentiwordnet !
+
+# Tokenize the abstract into individual words
+words <- article_may_13 %>%
+  unnest_tokens(word, abstract)
+
+# Add sentiment scores to each word
+word_sentiment <- words %>%
+  inner_join(get_sentiments("nrc"), by = "word")  # join on 'word'
+
+# Display the sentiment of each word
+print(word_sentiment)
+
+
+
+###########
+#  Vader  #
+###########
+#VADER is made for social media so it has a bit of difficulties matching words as well but it is doing OK. We get a pretty neutral compound.
+
+get_vader(article_may_13$abstract)[2]
+
+# Calculate the average sentiment score per day
+arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
+colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 14, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '14-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+##We can somewhat see the same trend as when using the NRC lexicon, but it is softer.
+
+
+
+
+##################
+#  SentiWordNet  #
+##################
+
+# Read in the SentiWordNet scores
+senti_scores <- read.delim('SentiWordNet_3.0.0.txt', header = TRUE, comment.char = '#')
+
+# Compute the objectivity score
+senti_scores$ObjScore <- 1 - (senti_scores$PosScore + senti_scores$NegScore)
+
+senti_scores
+##We can also see a pretty Neutral score using SentiWordNet. However this result is nothing without comparing it to the results with other abstracts.
+
+
+
+# function for sentiment of a word
+get_sentiment_score <- function(word) {
+  score <- senti_scores[grepl(paste0("\\b", word, "\\b"), senti_scores$SynsetTerms), c("PosScore", "NegScore")]
+  return(ifelse(nrow(score) > 0, score$PosScore - score$NegScore, NA))
+}
+
+# function for objectivity of a word
+get_objectivity_score <- function(word) {
+  scores <- senti_scores[grepl(paste0("\\b", word, "\\b"), senti_scores$SynsetTerms), "ObjScore"]
+  return(ifelse(length(scores) > 0, scores, NA))
+}
+
+# function for sentiment & objecticity of an abstract
+get_sentiment_objectivity_score = function(text){
+  # Tokenize the abstract
+  tokens <- data.frame(abstract = abstract) %>%
+    unnest_tokens(word, abstract)
+  
+  # Get sentiment and objectivity scores for each word
+  tokens <- tokens %>%
+    mutate(sentiment = map_dbl(word, get_sentiment_score),
+           objectivity = map_dbl(word, get_objectivity_score))
+  
+  # Aggregate the scores for the abstract
+  abstract_score <- tokens %>%
+    summarise(sentiment = mean(sentiment, na.rm = TRUE),
+              objectivity = mean(objectivity, na.rm = TRUE))
+  
+  # Print the scores
+  return(abstract_score)
+}
+
+get_sentiment_objectivity_score(article_may_13$abstract)
+
+
+
+######################
+#  Outliers Removal  #
+######################
+
+##Because we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
+# Convert update_date to Date class if it's not
+arxiv$update_date <- as.Date(arxiv$update_date)
+
+# Specify the date you are interested in
+specific_date <- as.Date("2021-12-27")
+
+# Filter rows for the specific date
+abstracts_on_specific_date <- arxiv[arxiv$update_date == specific_date,]
+
+# Now, abstracts_on_specific_date will contain only the rows of arxiv where the update_date is 26 NOV 2021
+abstracts_on_specific_date
+
+##The reason for the outliers is that for that certain day there have only been a small amount of research articles published. AND these articles have very positive / very negative sentiment. For now we will remove these articles from our data sample and see if we do something with them later on.
+
+# Convert update_date to Date class if it's not
+arxiv$update_date <- as.Date(arxiv$update_date)
+
+# Specify the dates you want to remove
+dates_to_remove <- as.Date(c("2021-11-26","2021-11-28", "2021-12-27", "2022-05-01", "2022-09-06", "2022-09-25", "2023-05-13"))
+
+# Filter rows to remove specific dates
+arxiv_filtered <- arxiv[!(arxiv$update_date %in% dates_to_remove),]
+
+###NRC
+# Convert update_date to Date class
+arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+arxiv_filtered <- arxiv_filtered %>%
+  filter(update_date >= start_date & update_date <= end_date)
+
+# Calculate the average sentiment score per day
+arxiv_avg_nrc <- aggregate(arxiv_filtered$nrc_sen, by=list(arxiv_filtered$update_date), FUN=mean)
+colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 30, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+##This is already better, we can see that the spikes in the rolling mean are not as present as before.
+
+
+###VADER
+# Convert update_date to Date class
+arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+arxiv_filtered <- arxiv_filtered %>%
+  filter(update_date >= start_date & update_date <= end_date)
+
+# Calculate the average sentiment score per day
+arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
+colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+
+
+
+
+#################
+#  Assumptions  #
+#################
+
+# Generate 100 random numbers between 1 and the number of rows in arxiv_filtered
+random_indices <- sample(1:nrow(arxiv_filtered), 100) # forgot the seed  ...
+
+# Create a new dataframe by subsetting arxiv_filtered using the random indices
+arxiv_filtered_sampled <- arxiv_filtered[random_indices, ]
+
+# Print the new dataframe
+print(arxiv_filtered_sampled)
+
+
+arxiv_texts <- read_csv("data/arxiv_text.csv")
+for(i in 1:nrow(arxiv_texts)){
+  Text <- arxiv_texts$Text[i]
+  # create a text corpus
+  corpus <- Corpus(VectorSource(Text))
+  
+  # preprocess text
+  corpus_clean <- corpus %>%
+    tm_map(content_transformer(tolower)) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("en")) %>%
+    tm_map(stripWhitespace)
+  
+  Text_clean <- as.character(corpus_clean[[1]])
+  
+  # replace the abstract with the cleaned version
+  arxiv_texts$Text[i] <- Text_clean
+}
+
+arxiv_texts$nrc_sen <- NA
+
+for (i in 1:nrow(arxiv_texts)) {
+  nrc_sentiment <- get_sentiment(arxiv_texts$Text[i], method="syuzhet")
+  arxiv_texts$nrc_sen[i] <- nrc_sentiment
+}
+
+arxiv_texts$vader_sen <- NA
+
+for (i in 1:nrow(arxiv_texts)) {
+  vader_sentiment <- get_vader(arxiv_texts$Text[i])[2]
+  arxiv_texts$vader_sen[i] <- vader_sentiment
+}
+#write.csv(arxiv_texts, "arxiv_text.csv", row.names = FALSE)
+arxiv_texts <- read_csv("arxiv_text.csv")
+
+df_combined <- merge(arxiv_filtered, arxiv_texts, by.x="title", by.y="Title", suffixes=c("_abstract", "_text"))
+# Your text string
+text = df_combined$Text[1]
+
+# Split the text into words
+words <- strsplit(text, "\\W")[[1]]
+
+# Filter words longer than 2 characters and count them
+word_count <- sum(nchar(words) > 2)
+
+print(word_count)
+
+# Iterate over each element in 'nrc_sen_text'
+for(i in 1:length(df_combined)){
+  # Access the element
+  text = df_combined$Text[i]
+  abstract = df_combined$abstract[i]
+  
+  words <- strsplit(text, "\\W")[[1]]
+  words2 <- strsplit(abstract, "\\W")[[1]]
+  
+  word_count <- sum(nchar(words) > 2)
+  word_count2 <- sum(nchar(words2) > 2)
+  
+  df_combined$nrc_sen_text = df_combined$nrc_sen_text / word_count
+  df_combined$vader_sen_text = df_combined$vader_sen_text / word_count
+  
+  df_combined$vader_sen_abstract = df_combined$vader_sen_abstract / word_count2
+  df_combined$nrc_sen_abstract = df_combined$nrc_sen_abstract / word_count2
+}
+
+# Normalize the columns
+df_combined$nrc_sen_text <- (df_combined$nrc_sen_text - min(df_combined$nrc_sen_text)) / (max(df_combined$nrc_sen_text) - min(df_combined$nrc_sen_text))
+
+df_combined$vader_sen_text <- (df_combined$vader_sen_text - min(df_combined$vader_sen_text)) / (max(df_combined$vader_sen_text) - min(df_combined$vader_sen_text))
+
+df_combined$vader_sen_abstract <- (df_combined$vader_sen_abstract - min(df_combined$vader_sen_abstract)) / (max(df_combined$vader_sen_abstract) - min(df_combined$vader_sen_abstract))
+
+df_combined$nrc_sen_abstract <- (df_combined$nrc_sen_abstract - min(df_combined$nrc_sen_abstract)) / (max(df_combined$nrc_sen_abstract) - min(df_combined$nrc_sen_abstract))
+
+# Create a new column 'index' which will act as the x-axis
+df_combined$index <- 1:nrow(df_combined)
+
+# Convert dataframe to long format
+df_long <- reshape2::melt(df_combined, id.vars = "index", measure.vars = c("nrc_sen_abstract", "nrc_sen_text"))
+
+# Create separate data frames for each variable
+df_abstract <- df_long[df_long$variable == "nrc_sen_abstract", ]
+df_text <- df_long[df_long$variable == "nrc_sen_text", ]
+
+# Calculate distance for each index
+df_distance <- df_abstract %>%
+  inner_join(df_text, by = "index", suffix = c("_abstract", "_text")) %>%
+  mutate(distance = abs(value_abstract - value_text)) %>%
+  select(index, distance)
+
+# Create plotly object for 'nrc_sen_abstract'
+fig <- plot_ly(df_abstract, x = ~index, y = ~value, type = "scatter", mode = "markers", marker = list(color = 'red'), name = 'nrc_sen_abstract')
+
+# Add 'nrc_sen_text'
+fig <- fig %>% add_trace(data = df_text, x = ~index, y = ~value, type = "scatter", mode = "markers",marker = list(color = 'blue'), name = 'nrc_sen_text')
+
+# Add 'distance'
+fig <- fig %>% add_trace(data = df_distance, x = ~index, y = ~distance, type = "scatter", mode = "markers", marker = list(color = 'green'), name = 'distance')
+
+# Create list of lines
+line_list <- lapply(unique(df_long$index), function(i) {list(type = 'line', line = list(color = 'grey',width=0.5), x0 = i, x1 = i, y0 = 0, y1 = 1)
+})
+
+# Add all lines to the layout
+fig <- fig %>% layout(shapes = line_list)
+
+# Display the plot
+fig
+
+##We can see that except for the last research paper, the ‘error’ is lower than 0.4. This is acceptable in our case.
+
+
+
+
+
+
+
+
+
+####################
+#  Topic modeling  #
+####################
+
+# load packages
+df = read_csv('data/arxiv_cleaned.csv')
+head(df)
+dim(df)
+
+corpus = Corpus(VectorSource(df$abstract))
+processedCorpus <- tm_map(corpus, content_transformer(tolower))
+processedCorpus <- tm_map(processedCorpus, removeWords, stopwords("en"))
+processedCorpus <- tm_map(processedCorpus, removePunctuation, preserve_intra_word_dashes = TRUE)
+processedCorpus <- tm_map(processedCorpus, removeNumbers)
+processedCorpus <- tm_map(processedCorpus, stemDocument, language = "en")
+processedCorpus <- tm_map(processedCorpus, stripWhitespace)
+# compute document term matrix with terms >= minimumFrequency
+minimumFrequency <- 5
+DTM <- DocumentTermMatrix(processedCorpus, control = list(bounds = list(global = c(minimumFrequency, Inf))))
+# have a look at the number of documents and terms in the matrix
+dim(DTM)
+
+## Finding the best number of topics (took almost 3 hours to run, bc EVERY MODEL NEEDS TO BE CONSTRUCTED AND EVALUATED)
+# create models with different number of topics 
+result <- FindTopicsNumber(
+  DTM,
+  topics = 1:20,
+  metrics = c("CaoJuan2009",  "Deveaud2014")
+)
+
+FindTopicsNumber_plot(result)
+
+
+#LDA MODEL
+# number of topics
+K <- 20
+# set random number generator seed
+set.seed(9161)
+# compute the LDA model, inference via 1000 iterations of Gibbs sampling
+topicModel <- LDA(DTM, K, method="Gibbs", control=list(iter = 1000, verbose = 25))
+
+#Model checking
+# have a look a some of the results (posterior distributions)
+tmResult <- posterior(topicModel)
+# format of the resulting object
+attributes(tmResult)
+
+nTerms(DTM)
+
+# topics are probability distributions over the entire vocabulary
+beta <- tmResult$terms   # get beta from results
+dim(beta)                # K distributions over nTerms(DTM) terms
+
+rowSums(beta)            # rows in beta sum to 1
+nDocs(DTM)               # size of collection
+
+# for every document we have a probability distribution of its contained topics
+theta <- tmResult$topics 
+dim(theta)               # nDocs(DTM) distributions over K topics
+rowSums(theta)[1:10]     # rows in theta sum to 1
+
+##RESULTS
+terms(topicModel,10)
+
+#Assigning Names to the Topics
+top5termsPerTopic <- terms(topicModel, 5)
+
+topicNames <- apply(top5termsPerTopic, 2, paste, collapse=" ")
+topics <- apply(theta, 1, which.max)
+df$topic <- topicNames[topics]
+
+#Visualizing Topic X as a Word Cloud
+# visualize topics as word cloud
+topicToViz <- 3 # change for your own topic of interest
+# select top 40 most probable terms from the topic by sorting the term-topic-probability vector in decreasing order
+top40terms <- sort(tmResult$terms[topicToViz,], decreasing=TRUE)[1:40]
+words <- names(top40terms)
+# extract the probabilites of each of the 40 terms
+probabilities <- sort(tmResult$terms[topicToViz,], decreasing=TRUE)[1:40]
+# visualize the terms as wordcloud
+mycolors <- brewer.pal(8, "Dark2")
+wordcloud(words, probabilities, random.order = FALSE, color = mycolors)
+
+##visualize Topic proportions for example documents:
+exampleIds <- c(2, 100, 200)
+
+N <- length(exampleIds)
+
+# get topic proportions form example documents
+topicProportionExamples <- theta[exampleIds,]
+colnames(topicProportionExamples) <- topicNames
+vizDataFrame <- melt(cbind(data.frame(topicProportionExamples), document = factor(1:N)), variable.name = "topic", id.vars = "document")  
+ggplot(data = vizDataFrame, aes(topic, value, fill = document), ylab = "proportion") + 
+  geom_bar(stat="identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +  
+  coord_flip() +
+  facet_wrap(~ document, ncol = N)
+
+
+# 2. apply sentiment analysis based on the assigned topics
+df$update_date <- as.Date(df$update_date)
+# Specify the date you are interested in
+specific_date <- as.Date("2021-12-27")
+# Filter rows for the specific date
+abstracts_on_specific_date <- df[df$update_date == specific_date,]
+# Now, abstracts_on_specific_date will contain only the rows of arxiv where the update_date is 26 NOV 2021
+abstracts_on_specific_date
+
+##The reason for the outliers is that for that certain day there have only been a small amount of research articles published. AND these articles have very positive / very negative sentiment. For now we will remove these articles from our data sample and see if we do something with them later on.
+# Convert update_date to Date class if it's not
+df$update_date <- as.Date(df$update_date)
+
+# Specify the dates you want to remove
+dates_to_remove <- as.Date(c("2021-11-26","2021-11-28", "2021-12-27", "2022-05-01", "2022-09-06", "2022-09-25", "2023-05-13"))
+
+# Filter rows to remove specific dates
+df <- df[!(df$update_date %in% dates_to_remove),]
+
+
+############################################# The below works. The above no. Let's correct
+#Let's count a number of articles per TOPIC
+counts <- table(df$topic)
+counts_df <- data.frame(A = names(counts), Count = as.numeric(counts))
+
+# Create bar plot using plot_ly
+p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
+  layout(xaxis = list(title = "A"), yaxis = list(title = "Count"), 
+         title = "Number of articles per Topic")
+# Display the plot
+p
+
+
+#####
+TOPIC = 'languag task generat use code'
+
+filtered_grouped <- grouped %>%
+  filter(topic == TOPIC)
+
+filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+filtered_grouped <- filtered_grouped %>%
+  filter(update_date >= start_date & update_date <= end_date)
+
+###NRC
+# Calculate the average sentiment score per day
+arxiv_avg_nrc <- aggregate(filtered_grouped$nrc_sen, by=list(filtered_grouped$update_date), FUN=mean)
+colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 30, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+  layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+
+
+###VADER
+# Calculate the average sentiment score per day
+arxiv_avg_vader <- aggregate(filtered_grouped$vader_sen, by=list(filtered_grouped$update_date), FUN=mean)
+colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+  layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+
+############################################# 
