@@ -97,8 +97,7 @@ library(syuzhet)
 
 ## Data 1: Wikipedia + _Scopus_
 
-First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles via Scopus API. As noted in the code chunk below, you have to record your own Scopus API key in your local system to be able to utilize the service. 
-After a number of data cleaning processes, we save the data into a cleaned version, and we reload this cleaned file for further analysis so that users can follow the analysis without problems.
+First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles via Scopus API. 
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
@@ -139,6 +138,9 @@ clean_names <- trimws(clean_names)  # Remove leading/trailing white spaces
 print(clean_names)
 ```
 
+As noted in the code chunk below, you have to record your own Scopus API key in your local system to be able to utilize the service. 
+
+After a number of data cleaning processes, we save the data into a cleaned version, and we reload this cleaned file for further analysis so that users can follow the analysis without problems.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 ## To run this code, you first need to include a valid Scopus API key in your local system. 
@@ -222,7 +224,7 @@ scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data
 
 ## Data 2: Arxiv
   
-**I don't know if this runs or not, translated code from python to R, but 8GB of RAM not enough to open the json in R on my pc**
+**I don't know if this runs or not, translated code from python to R, but 8GB of RAM not enough to open the json in R on my pc** - **Gunho: We let it not run. We just show that it is the way to get 'arxiv.csv' file**
 
 ```{r warning=FALSE, eval=FALSE, include=TRUE}
 FILE <- 'data/arxiv-metadata-oai-snapshot.json'
@@ -257,6 +259,7 @@ write_csv(dataframe, 'data/arxiv.csv')
 ```
 
 ```{r warning=FALSE}
+library(readr)
 # Read the arxiv data
 arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
 head(arxiv)
@@ -497,7 +500,8 @@ article_may_1 <- arxiv_filtered %>% filter(update_date == as.Date("2022-05-01"))
 print(article_may_1$abstract)
 
 # Get sentiment of the abstract
-article_may_1$sentiment <- get_sentiment(article_may_13$abstract)
+article_may_1$sentiment <- get_sentiment(article_may_1$abstract)
+#article_may_1$sentiment <- get_sentiment(article_may_13$abstract) #maybe it's an error?  may_13 => may_1
 
 # Display the sentiment score
 print(article_may_1$sentiment)
@@ -507,11 +511,11 @@ Using the Bing and afinn lexicon we only have a match with 2 words, using the lo
 
 According to ChatGPT, recommended lexicons for research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
 
-```{r include=TRUE, cache=TRUE}
+```{r cache=TRUE, include=TRUE}
 # Tokenize the abstract into individual words
-words <- article_may_13 %>% unnest_tokens(word, abstract)
+words <- article_may_1 %>% unnest_tokens(word, abstract)
 
-# Add sentiment scores to each word
+# Add sentiment scores to each word   
 word_sentiment <- words %>%
   inner_join(get_sentiments("nrc"), by = "word")  # join on 'word'
 
@@ -523,7 +527,7 @@ print(word_sentiment)
 ### VADER
 
 VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media. 
-It is thus not clear if it will work well on research papers. Let's try it out.
+It is thus not clear if it will work well on research papers. Let's try it out.\\
 **Note that computing sentiment scores using the VADER lexicon is very intensive**
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
@@ -622,11 +626,11 @@ get_sentiment_objectivity_score = function(text){
 get_sentiment_objectivity_score(article_may_13$abstract)
 ```
 
-We can also see a pretty Neutral score using SentiWordNet. However this result is nothing without comparing it to the results with other abstracts.
+We can also see a fairly Neutral score using SentiWordNet. However this result is nothing without comparing it to the results with other abstracts.
 
 ## Outliers Removal
 
-Because we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
+Given that we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
 Luckily we only have 6 days over the period of 2 years where this happens so we will just remove these outliers from our dataset.
 
 ```{r include=TRUE, cache=TRUE}
@@ -679,7 +683,7 @@ p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line
 p
 ```
 
-This is already better, we can see that the spikes in the rolling mean are not as present as before.
+The outlier removal seems to have erased the spikes in the rolloing mean that were present before.
 
 Let's see if there is a significant difference between the year before and after the release of ChatGPT. Because our data is not normally distributed, we will use a t-test.
 Assumptions for the t-test are:
@@ -936,9 +940,13 @@ We can see that except for the last research paper, the 'error' is lower than 0.
 
 ## Topic Modelling
 
-For topic modelling we will make use of the implementation suggested by Martin Schweinberger [here](https://ladal.edu.au/topicmodels.html).
+Moreover, we apply **topic modelling** to uncover abstract topics within this set of articles. Topic modelling enables users to reveal hidden semantic structures in text data. Although the arxiv data broadly touches upon artificial intelligence, the samples can be divided into networks of words that frequently appear in texts, indicating each network represents a certain semantic or topic. For instance, certain samples may focus on image-related AI while other group may deal with NLP-based AI. Further, this unique topic division would help us to conduct separate sentiment analyses, leading to a more clustered interpretation.
+
+Note that the implementation is made based on the tutorial conducted by Martin Schweinberger [here](https://ladal.edu.au/topicmodels.html).
 
 ### Loading and Preprocessing the data
+
+First, we create a corpus from the 'abstract' column of the arxiv file, followed by a number of pre-processing steps on the corpus to clean the text data. The cleaning includes converting the text to lowercase, removing stopwords, punctuation, numbers, and stemming the words. Note that each step is applied sequentially.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 df = read_csv('data/arxiv_sentiments.csv')
@@ -953,6 +961,10 @@ processedCorpus <- tm_map(processedCorpus, stemDocument, language = "en")
 processedCorpus <- tm_map(processedCorpus, stripWhitespace)
 ```
 
+### Document-Term Matrix (DTM)
+
+To obtain the frequency of words in each article, we compute the DTM using the processed corpus. A minimum frequency is set to 5 and thus terms only with a greater than or equal to this threshold are included in the matrix.
+
 ```{r include=TRUE, cache=TRUE}
 # compute document term matrix with terms >= minimumFrequency
 minimumFrequency <- 5
@@ -961,7 +973,12 @@ DTM <- DocumentTermMatrix(processedCorpus, control = list(bounds = list(global =
 dim(DTM)
 ```
 
-Finding the best number of topics (took almost 3 hours to run, because every model needs to be constructed and evaluated)
+
+### Finding the optimal topic numbers
+
+To find the optimal number of topics, we set a range of numbers from 1 to 20 and select the following two evaluation methods ('CaoJuan2009' and 'Deveaud2014') to assess the quality of each model. Ideally, the optimal topic numbers exhibit low CaoJuan2009 and high Deveaud2014 values. Again, the choice of the methods is motivated the aforementioned tutorial.
+
+**Note:** the following code is computationally very expensive since every model needs to be constrcuted and evaluated.
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 
@@ -977,6 +994,8 @@ FindTopicsNumber_plot(result)
 
 ![](topic.png){width="682"}
 
+The result indicates that the desired number of topics is 20, and hence we proceed the analysis with this number. Now, we are able to build the Latent Dirichlet Allocation (LDA) model, that is trained on the DTM using the Gibbs sampling with 1000 iterations. Note that we do not intend to experiment with other sampling methods and different hyperparameters as it is not the primary focus of the analysis.
+
 ### LDA model
 
 ```{r include=TRUE, cache=TRUE}
@@ -989,6 +1008,8 @@ topicModel <- LDA(DTM, K, method="Gibbs", control=list(iter = 1000, verbose = 25
 ```
 
 ### Model Checking
+
+The following code provides with important structural features of the LDA topic model.
 
 ```{r include=TRUE, cache=TRUE}
 # have a look a some of the results (posterior distributions)
@@ -1009,11 +1030,13 @@ rowSums(theta)[1:10]     # rows in theta sum to 1
 
 ### Results
 
+We display the top 10 words for each topic in the model.
+
 ```{r include=TRUE, cache=TRUE}
 terms(topicModel, 10)
 ```
 
-Assigning Names to the Topics
+Next, we select the top 5 words and combine them as the topic names, then we assign them to the corresponding article based on the most probable topic.
 
 ```{r include=TRUE, cache=TRUE}
 top5termsPerTopic <- terms(topicModel, 5)
@@ -1022,7 +1045,7 @@ topics <- apply(theta, 1, which.max)
 df$topic <- topicNames[topics]
 ```
 
-Visualizing Topic x as a Word Cloud
+For instance, we may visualize a specific topic by creating a word cloud of the most probable words. The code below shows top 40 words in Topic 3 and display them as a word cloud.
 
 ```{r include=TRUE, cache=TRUE}
 # visualize topics as word cloud
@@ -1037,7 +1060,7 @@ mycolors <- brewer.pal(8, "Dark2")
 wordcloud(words, probabilities, random.order = FALSE, color = mycolors)
 ```
 
-Visualize Topic proportions for example documents:
+Furthermore, we visualize the topic proportions of selected articles. More specifically, the code below extracts the proportions of three specific articles and visualize them accordingly.
 
 ```{r include=TRUE, cache=TRUE}
 exampleIds <- c(2, 100, 200)
@@ -1055,9 +1078,8 @@ ggplot(data = vizDataFrame, aes(topic, value, fill = document), ylab = "proporti
   facet_wrap(~ document, ncol = N)
 ```
 
-Now, it is possible to run sentiment analysis per topic. This additional experiment is expected to show any difference between topics and enables us to pinpoint some unique topics which may exhibit a different pattern than the rest.
+Now, it is possible to run sentiment analysis per topic. This additional experiment is expected to show any difference between topics and enables us to pinpoint unique topics which may exhibit a different pattern than the rest. In other words, despite the general increasing trend, some topics may exhibit decreased sentiment which would be valuable information. First of all, we again remove the same outliers explained before.
 
-First of all, we again remove the same outliers explained before
 ```{r include=TRUE, cache=TRUE}
 df$update_date <- as.Date(df$update_date)
 specific_date <- as.Date("2021-12-27")
@@ -1081,6 +1103,7 @@ p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
 p
 ```
 
+We visualize
 vader = social media (emotions) -> inappropriate for large texts
 nrc is more useful in our case.
 
@@ -1169,7 +1192,6 @@ topic4 <- 'imag object method map deep'
 topic11 <- 'predict time use event seri'
 topic14 <- 'languag task generat use code'
 
-
 plot1 <- generate_topic_plot_nrc(topic4)
 plot2 <- generate_topic_plot_nrc(topic11)
 plot3 <- generate_topic_plot_nrc(topic14)
@@ -1191,6 +1213,10 @@ plot2
 plot3
 ```
 
+The plots...
+
+# Discussion
+SAY SAY
 
 # Conclusion
 

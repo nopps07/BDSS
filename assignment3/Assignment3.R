@@ -953,15 +953,99 @@ for (i in 1:nrow(scopus)) {
 scopus_avg <- aggregate(scopus$abstract_sen, by=list(scopus$date), FUN=mean)
 colnames(scopus_avg) <- c("Year", "Avg_Sentiment")
 
-
-
+## Check below
 ## sentiment analysis for scopus
-arxiv$update_date <- as.Date(arxiv$update_date)
+# Loop through the texts in the abstract column
+for(i in 1:nrow(scopus)){
+  abstract <- scopus$abstract[i]
+  # create a text corpus
+  corpus <- Corpus(VectorSource(abstract))
+  
+  # preprocess text
+  corpus_clean <- corpus %>%
+    tm_map(content_transformer(tolower)) %>%
+    tm_map(removePunctuation) %>%
+    tm_map(removeNumbers) %>%
+    tm_map(removeWords, stopwords("en")) %>%
+    tm_map(stripWhitespace)
+  
+  abstract_clean <- as.character(corpus_clean[[1]])
+  
+  # replace the abstract with the cleaned version
+  scopus$abstract[i] <- abstract_clean
+}
+
+scopus$vader_sen <- NA
+
+for (i in 1:nrow(scopus)) {
+  vader_sentiment <- get_vader(scopus$abstract[i])[2]
+  scopus$vader_sen[i] <- vader_sentiment
+}
+
+# Add a new column called 'abstract_sen' to the 'data_test_cleaned' dataframe
+scopus$nrc_sen <- NA
+
+# Loop through each row of the dataframe and calculate the sentiment score for the abstract
+for (i in 1:nrow(scopus)) {
+  nrc_sentiment <- get_sentiment(scopus$abstract[i], method="syuzhet")
+  scopus$nrc_sen[i] <- nrc_sentiment
+}
+
+scopus$cover_date <- as.Date(scopus$cover_date)
 
 # Define start and end dates
 start_date <- as.Date("2021-11-22")
 end_date <- as.Date("2023-11-22")
 
 # Filter the data to include only two years of interest
-arxiv_filtered <- arxiv %>%
-  filter(update_date >= start_date & update_date <= end_date)
+scopus_filtered <- scopus %>%
+  filter(cover_date >= start_date & cover_date <= end_date)
+
+# Calculate the average sentiment score per day
+scopus_avg_nrc <- aggregate(scopus_filtered$nrc_sen, by=list(scopus_filtered$cover_date), FUN=mean)
+colnames(scopus_avg_nrc) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+scopus_avg_nrc$Rolling_Mean <- rollmean(scopus_avg_nrc$Avg_Sentiment, k = 7, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(scopus_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '7-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p 
+# Not enough samples to conduct something meaningful, and hence we from now on focus on Arxiv data only.
+
+
+####
+arxiv_filtered
+# Filter the data to include only the year before and after the release of ChatGPT
+scopus_filtered <- scopus_filtered %>%
+  filter(cover_date >= "2021-11-22" & cover_date <= "2023-11-22")
+
+# Split the data into two groups
+scopus_filtered_before <- scopus_filtered %>%
+  filter(cover_date < "2022-11-30")
+
+scopus_filtered_after <- scopus_filtered %>%
+  filter(cover_date >= "2022-11-30")
+
+# plot histogram of sentiment scores
+hist(scopus_filtered_before$nrc_sen, breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
+hist(scopus_filtered_after$nrc_sen,breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
+
+# Check the assumption of equal variance
+var.test(scopus_filtered_before$nrc_sen, scopus_filtered_after$nrc_sen)
+
+# Perform the Welch Two Sample t-test
+t.test(scopus_filtered_before$nrc_sen, scopus_filtered_after$nrc_sen, var.equal = FALSE)
+t.test(scopus_filtered_before$nrc_sen, scopus_filtered_after$nrc_sen, var.equal = TRUE)
