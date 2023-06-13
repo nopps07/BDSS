@@ -214,11 +214,8 @@ arxiv <- read_csv("data/arxiv_sentiments.csv", col_types = cols(update_date = co
 ###############################
 
 ## Scopus
-
-# Create a new column with the year of the cover date
-scopus$year <- format(scopus$cover_date, "%Y")
 # Create a histogram of the amount of articles per year
-plot_ly(scopus, x = ~year, type = "histogram") %>%
+plot_ly(scopus, x = ~date, type = "histogram") %>%
   layout(title = "Amount of Articles per Year", xaxis = list(title = "Year"), yaxis = list(title = "Count"))
 
 # Group the data by author and count the number of articles
@@ -609,7 +606,7 @@ for (i in 1:nrow(arxiv_texts)) {
   arxiv_texts$vader_sen[i] <- vader_sentiment
 }
 #write.csv(arxiv_texts, "arxiv_text.csv", row.names = FALSE)
-arxiv_texts <- read_csv("arxiv_text.csv")
+arxiv_texts <- read_csv("data/arxiv_text.csv")
 
 df_combined <- merge(arxiv_filtered, arxiv_texts, by.x="title", by.y="Title", suffixes=c("_abstract", "_text"))
 # Your text string
@@ -879,7 +876,7 @@ arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, 
 
 # Create a plotly line chart of the average sentiment score per day
 p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
-  layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+  layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
          xaxis = list(title = "Date"), 
          yaxis = list(title = "Average Sentiment Score"))
 
