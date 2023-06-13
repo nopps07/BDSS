@@ -726,22 +726,6 @@ t.test(before, after, var.equal = FALSE)
 The p-value (0.004551) indicates that there is a significant difference between the two groups. The Confidence Interval [-0.29602981,-0.05415019] indicates that the mean sentiment score of the year after the release of ChatGPT is between 0.05415019 and 0.29602981 higher than the mean sentiment score of the year before the release of ChatGPT.
 Keep in mind that while the difference is statistically significant, it is not practically significant. 
 
-```{r include=TRUE, cache=TRUE}
-# Filter the data to include only the year before and after the release of ChatGPT
-arxiv_filtered <- arxiv_filtered %>%
-  filter(update_date >= "2021-11-22" & update_date <= "2023-11-22")
-
-# Split the data into two groups
-arxiv_filtered_before <- arxiv_filtered %>%
-  filter(update_date < "2022-11-30")
-
-arxiv_filtered_after <- arxiv_filtered %>%
-  filter(update_date >= "2022-11-30")
-
-wilcox.test(arxiv_filtered_before$nrc_sen, arxiv_filtered_after$nrc_sen)
-```
-
-
 ### VADER
 
 ```{r include=TRUE, cache=TRUE}
