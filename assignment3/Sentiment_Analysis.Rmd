@@ -222,6 +222,8 @@ scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data
 
 ## Data 2: Arxiv
   
+**I don't know if this runs or not, translated code from python to R, but 8GB of RAM not enough to open the json in R on my pc**
+
 ```{r warning=FALSE, eval=FALSE, include=TRUE}
 FILE <- 'data/arxiv-metadata-oai-snapshot.json'
 
@@ -678,6 +680,51 @@ p
 ```
 
 This is already better, we can see that the spikes in the rolling mean are not as present as before.
+
+Let's see if there is a significant difference between the year before and after the release of ChatGPT. Because our data is not normally distributed, we will use a t-test.
+Assumptions for the t-test are:
+
+* The observations are independent of one another.
+* The dependent variable is approximately normally distributed for each category of the independent variable.
+* The dependent variable has approximately equal variance for each category of the independent variable.
+
+To check the normality assumption, we can use a histogram. We will randomly sample 5000 observations from each group.
+
+```{r include=TRUE, cache=TRUE}
+# Filter the data to include only the year before and after the release of ChatGPT
+arxiv_filtered <- arxiv_filtered %>%
+  filter(update_date >= "2021-11-22" & update_date <= "2023-11-22")
+
+# Split the data into two groups
+arxiv_filtered_before <- arxiv_filtered %>%
+  filter(update_date < "2022-11-30")
+
+arxiv_filtered_after <- arxiv_filtered %>%
+  filter(update_date >= "2022-11-30")
+
+set.seed(2)
+before = sample(arxiv_filtered_before$nrc_sen,5000)
+after = sample(arxiv_filtered_after$nrc_sen,5000)
+
+# plot histogram of sentiment scores
+hist(before, breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
+hist(after,breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
+```
+The assumption of normality is met. Note that this is a result of the Central Limit Theorem, which states that the sampling distribution of the mean of any independent, random variable will be normal or nearly normal, if the sample size is large enough.
+We know that the observations are independent of one another, so let's check the assumption of equal variance.
+
+```{r include=TRUE, cache=TRUE}
+# Check the assumption of equal variance
+var.test(before, after)
+```
+Variances are not equal, so we will use the Welch Two Sample t-test.
+
+```{r include=TRUE, cache=TRUE}
+# Perform the Welch Two Sample t-test
+t.test(before, after, var.equal = FALSE)
+```
+The p-value (0.004551) indicates that there is a significant difference between the two groups. The Confidence Interval [-0.29602981,-0.05415019] indicates that the mean sentiment score of the year after the release of ChatGPT is between 0.05415019 and 0.29602981 higher than the mean sentiment score of the year before the release of ChatGPT.
+Keep in mind that while the difference is statistically significant, it is not practically significant. 
 
 ### VADER
 
