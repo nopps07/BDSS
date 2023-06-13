@@ -97,7 +97,8 @@ library(syuzhet)
 
 ## Data 1: Wikipedia + _Scopus_
 
-First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles.
+First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles via Scopus API. As noted in the code chunk below, you have to record your own Scopus API key in your local system to be able to utilize the service. 
+After a number of data cleaning processes, we save the data into a cleaned version, and we reload this cleaned file for further analysis so that users can follow the analysis without problems.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
@@ -309,8 +310,7 @@ plot_ly(scopus, x = ~year, type = "histogram") %>%
   layout(title = "Amount of Articles per Year", xaxis = list(title = "Year"), yaxis = list(title = "Count"))
 ```
 
-As we can see, the amount of articles per year has increased significantly since 2017. This may be due to the fact that the term "artificial intelligence" has become more popular in recent years.  
-Let's see how many articles we have per author.
+As we can see, the amount of articles per year has increased significantly since 2017. This might indicate the fact that the term "artificial intelligence" has become more popular in recent years. Outliers may cause class imbalance, and hence we check a number of articles per author to evaluate the balance of the data.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Group the data by author and count the number of articles
@@ -1034,10 +1034,13 @@ p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
 p
 ```
 
+vader = social media (emotions) -> inappropriate for large texts
+nrc is more useful in our case.
+
 ```{r include=TRUE, cache=TRUE}
-generate_topic_plot_nrc <- function(topic) {
+generate_topic_plot_nrc <- function(t) {
   filtered_grouped <- df %>%
-    filter(topic == topic)
+    filter(topic == t)
   
   filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
   
@@ -1059,7 +1062,7 @@ generate_topic_plot_nrc <- function(topic) {
   
   # Create a plotly line chart of the average sentiment score per day
   p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
-    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+    layout(title = paste("Average Sentiment Score per Day (Topic:", t, ")"), 
            xaxis = list(title = "Date"), 
            yaxis = list(title = "Average Sentiment Score"))
   
@@ -1074,9 +1077,9 @@ generate_topic_plot_nrc <- function(topic) {
   return(p)
 }
 
-generate_topic_plot_vader <- function(topic) {
+generate_topic_plot_vader <- function(t) {
   filtered_grouped <- df %>%
-    filter(topic == topic)
+    filter(topic == t)
   
   filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
   
@@ -1098,7 +1101,7 @@ generate_topic_plot_vader <- function(topic) {
   
   # Create a plotly line chart of the average sentiment score per day
   p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
-    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+    layout(title = paste("Average Sentiment Score per Day (Topic:", t, ")"), 
            xaxis = list(title = "Date"), 
            yaxis = list(title = "Average Sentiment Score"))
   

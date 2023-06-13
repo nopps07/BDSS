@@ -821,9 +821,9 @@ p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
 # Display the plot
 p
 
-generate_topic_plot_nrc <- function(topic) {
+generate_topic_plot_nrc <- function(t) {
   filtered_grouped <- df %>%
-    filter(topic == topic)
+    filter(topic == t)
   
   filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
   
@@ -845,7 +845,7 @@ generate_topic_plot_nrc <- function(topic) {
   
   # Create a plotly line chart of the average sentiment score per day
   p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
-    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+    layout(title = paste("Average Sentiment Score per Day (Topic:", t, ")"), 
            xaxis = list(title = "Date"), 
            yaxis = list(title = "Average Sentiment Score"))
   
@@ -860,9 +860,9 @@ generate_topic_plot_nrc <- function(topic) {
   return(p)
 }
 
-generate_topic_plot_vader <- function(topic) {
+generate_topic_plot_vader <- function(t) {
   filtered_grouped <- df %>%
-    filter(topic == topic)
+    filter(topic == t)
   
   filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
   
@@ -884,7 +884,7 @@ generate_topic_plot_vader <- function(topic) {
   
   # Create a plotly line chart of the average sentiment score per day
   p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
-    layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
+    layout(title = paste("Average Sentiment Score per Day (Topic:", t, ")"), 
            xaxis = list(title = "Date"), 
            yaxis = list(title = "Average Sentiment Score"))
   
@@ -952,3 +952,16 @@ for (i in 1:nrow(scopus)) {
 
 scopus_avg <- aggregate(scopus$abstract_sen, by=list(scopus$date), FUN=mean)
 colnames(scopus_avg) <- c("Year", "Avg_Sentiment")
+
+
+
+## sentiment analysis for scopus
+arxiv$update_date <- as.Date(arxiv$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+arxiv_filtered <- arxiv %>%
+  filter(update_date >= start_date & update_date <= end_date)
