@@ -1,6 +1,6 @@
 ---
 title: "Collecting and Analyzing Big Data for Social Science"
-author: "Gunho Lee, Valentin Duprez, Lennert Van"
+author: "Gunho Lee, Valentin Duprez, Lennert Van Haeren"
 date: "6/12/2023"
 output: html_document
 ---
@@ -47,10 +47,22 @@ Our hypothesis assumes that AI experts' ideas influence public opinions, and hen
 * Cover Date
 * DoI
 
-Initially, the total number of the papers is 56,939. Next, DoI is required to extrcat **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers.
+Initially, the total number of the papers is 56,939. Next, DoI is required to extract **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers.
 
-Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we follow one more data collection in order to enlarge the inventory. **EXPLAIN ARXIV HERE (VALENTIN)** 
+Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we follow one more data collection in order to enlarge the inventory. 
 
+For more than 30 years, ArXiv has been the most popular preprint server in the world. It is a free distribution service and an open-access archive for scholarly articles in different fields like physics, mathematics, computer science, quantitative biology, etc. 
+More than 1.7 million research articles are accessible via the ArXiv API. For these articles, the API provides metadata such as title, authors, abstract, publication date, and category. The API also provides the full text of the articles in different formats.
+However, for our paticular use case, we are only interested in the abstracts of the articles. Therefore, we will use the arXiv dataset from Kaggle, which contains 1.7 million articles with their metadata and abstracts. The dataset is available in CSV format and can be downloaded from [here](https://www.kaggle.com/Cornell-University/arxiv).
+
+The dataset we will be working with contains the following columns:
+
+* authors: 
+* title
+* update_date (The date the article was last updated)
+* abstract
+
+After having filtered the data on the same keywords as the Scopus dataset, we are left with a total of 80,973 articles. Even though most of these articles are not peer-reviewed, we believe that this dataset will still provide us with valuable insights on the public perception of AI.
 
 ## Imports
 
