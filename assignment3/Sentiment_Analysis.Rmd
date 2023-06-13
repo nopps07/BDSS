@@ -1,20 +1,14 @@
 ---
-title: "Untitled"
-author: "Gunho Lee"
+title: "Collecting and Analyzing Big Data for Social Science"
+author: "Gunho Lee, Valentin Duprez, Lennert Van"
 date: "6/12/2023"
 output: html_document
 ---
-# Collecting and Analyzing Big Data for Social Science
-
-## Assignment 3
-
-This notebook is used for collaborative works.
-
 # 1. Introduction
 
 Artificial Intelligence (AI) has been widely studied and researched for a long time, and nowadays the AI technology influences human lives in a significant way. Its service is no longer limited to business owners but also any individuals. Many experts have stressed that AI would become a game changer in a short time, leaving the idea that the general opinion of academia and industry favoured the new technology. However, the rise of ChatGPT, a chatbot developed by OpenAI, has significantly shaped the world in a very unexpected and unpredictable way. The power of ChatGPT and its impact is far beyond our imagination. Ironically, due to its potentials, the world figures that it has created negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria. Scammers utilized generative AI technology to create a fake image of a firefighter holding a victim to trick people into donating money.
 
-![fake](fake.png)
+![](fake.png)
 
 Source: Hannah Gelbart, "Scammers profit from Turkey-Syria earthquake" in BBC, 14 Feb 2023
 	
@@ -26,7 +20,7 @@ The perception of ChatGPT has slightly decreased since its debut. Moreover, the 
 
 The debate about a proper usage of AI is intensely led by leading AI experts and leaves challenging questions to the public. Geoffrey Hinton, who has been named as AI pioneer or Godfather of AI, has recently decided to leave Google with regrets and fears about his life’s work in AI. In other words, the sentiment of AI seems to have changed dramatically ever since the birth of ChatGPT. Besides, the problem is that such discussions are done among the experts and hence their voices are likely to influence public opinions towards the AI technology.
 	
-![hinton](hinton.jpg)
+![](hinton.jpg)
 Source: Cade Metz, "The Godfather of A.I.’ Leaves Google and Warns of Danger Ahead" in New York Times
 
 [2] aims to explore the public perception of risks associated with AI. The authors analyse twitter data and investigate the emergence and prevalence of risks associated with AI. A significant finding is that the perception of AI risk is primarily linked to existential risks, which gained popularity after late 2014. This perception is primarily influenced by expert opinions rather than actual disasters.
@@ -45,12 +39,14 @@ To answer the formulated questions, we attempt to apply sentiment analysis on th
 # 3. Data
 
 Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the AI experts. To answer, we extract the researchers listed in ["Artificial Intelligence researchers"]([url](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages)) in Wikipedia. After finding those 416 researchers, we utilize Scopus APIs to extract the published papers of the researchers, including the following elements:
-- First and Last Name
-- Title
-- Journal
-- Description (Type of paper: Article, Review, Book Chapter, etc)
-- Cover Date
-- DoI
+
+* First and Last Name
+* Title
+* Journal
+* Description (Type of paper: Article, Review, Book Chapter, etc)
+* Cover Date
+* DoI
+
 Initially, the total number of the papers is 56,939. Next, DoI is required to extrcat **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers.
 
 Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we follow one more data collection in order to enlarge the inventory. **EXPLAIN ARXIV HERE (VALENTIN)** 
@@ -60,7 +56,7 @@ Even though that the authors of the papers are expected to be _influential_, we 
 
 The following code loads every library used in this research notebook.
 
-```{r include=TRUE, cache=TRUE}
+```{r warning=FALSE, include=TRUE, cache=TRUE}
 library(rscopus)
 library(dplyr)
 library(rvest)
@@ -215,7 +211,7 @@ arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(form
 head(arxiv)
 ```
 
-## Cleaning
+### Cleaning
 
 ```{r eval=FALSE, warning=FALSE, include=FALSE, cache=TRUE}
 # Loop through the texts in the abstract column
@@ -239,13 +235,16 @@ for(i in 1:nrow(arxiv)){
 }
 ```
 
-```{r eval=FALSE, include=FALSE}
-#write.csv(arxiv, "arxiv_cleaned.csv", row.names = FALSE)
+```{r eval=FALSE, include=TRUE}
+write.csv(arxiv, "arxiv_cleaned.csv", row.names = FALSE)
 ```
 
-## Analysis with visuals
 
-```{r, cache=TRUE}
+# 4. Sentiment Analysis
+
+## Visualization
+
+```{r include=TRUE, cache=TRUE}
 arxiv <- read_csv("data/arxiv_cleaned.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
 
 # Add a new column called 'abstract_sen' to the 'data_test_cleaned' dataframe
@@ -256,9 +255,7 @@ for (i in 1:nrow(arxiv)) {
   nrc_sentiment <- get_sentiment(arxiv$abstract[i], method="syuzhet")
   arxiv$nrc_sen[i] <- nrc_sentiment
 }
-#####################
 
-####################
 # Calculate the average sentiment score per year
 arxiv$update_date <- as.Date(arxiv$update_date)
 arxiv$year <- year(arxiv$update_date)
@@ -269,27 +266,26 @@ colnames(arxiv_avg) <- c("Year", "Avg_Sentiment")
 # Create a plotly line chart of the average sentiment score per year
 plot_ly(arxiv_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines+markers') %>%
   layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
-####################
 ```
 
 Adding Vader sentiment column (very intensive to run)
 
-```{r eval=FALSE, include=FALSE, cache=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv$vader_sen <- NA
 
 for (i in 1:nrow(arxiv)) {
   vader_sentiment <- get_vader(arxiv$abstract[i])[2]
   arxiv$vader_sen[i] <- vader_sentiment
 }
-```
 
-```{r eval=FALSE, include=FALSE, cache=TRUE}
 write.csv(arxiv, "arxiv_sentiments.csv", row.names = FALSE)
 ```
 
 comparison between the year before and after chatgpt:
 
-```{r, cache=TRUE}
+```{r eval=TRUE, include=TRUE, cache=TRUE}
+arxiv <- read_csv("data/arxiv_sentiments.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
+
 # Convert update_date to Date class
 arxiv$update_date <- as.Date(arxiv$update_date)
 
@@ -332,30 +328,25 @@ We can see that after the release of ChatGPT there is a slightly increasing tren
 
 let's take a look at one of our outliers:
 
-```{r, cache=TRUE}
+```{r include=TRUE, cache=TRUE}
 # Filter the data to include only the article from May 13, 2022
 article_may_13 <- arxiv_filtered %>% filter(update_date == as.Date("2022-05-01"))
 
 # Display the article
 print(article_may_13$abstract)
 
-
-# Load necessary library
-library(tidytext)
-
 # Get sentiment of the abstract
 article_may_13$sentiment <- get_sentiment(article_may_13$abstract)
 
 # Display the sentiment score
 print(article_may_13$sentiment)
-
 ```
 
 Using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC (syuzhet) lexicon has more matches.
 
 According to ChatGPT, recommended lexicons for research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
 
-```{r, cache=TRUE}
+```{r include=TRUE, cache=TRUE}
 # Tokenize the abstract into individual words
 words <- article_may_13 %>% unnest_tokens(word, abstract)
 
@@ -373,12 +364,12 @@ print(word_sentiment)
 VADER is made for social media so it has a bit of difficulties matching words as well but it is doing OK. We get a pretty neutral compound.
 
 ```{r}
-get_vader(article_may_13$abstract)[2]
+vader::get_vader(article_may_13$abstract)[2]
 ```
 
 Let's add a curve to the previous plot that show the Daily Average Sentiment but using VADER for the sentiment calculation.
 
-```{r, warning=FALSE, include=TRUE, cache=TRUE}
+```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Calculate the average sentiment score per day
 arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
 colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
@@ -408,7 +399,7 @@ We can somewhat see the same trend as when using the NRC lexicon, but it is soft
 
 ### SentiWordNet:
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 # Read in the SentiWordNet scores
 senti_scores <- read.delim('SentiWordNet_3.0.0.txt', header = TRUE, comment.char = '#')
 
@@ -418,7 +409,7 @@ senti_scores$ObjScore <- 1 - (senti_scores$PosScore + senti_scores$NegScore)
 senti_scores
 ```
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 # function for sentiment of a word
 get_sentiment_score <- function(word) {
   score <- senti_scores[grepl(paste0("\\b", word, "\\b"), senti_scores$SynsetTerms), c("PosScore", "NegScore")]
@@ -431,9 +422,6 @@ get_objectivity_score <- function(word) {
   return(ifelse(length(scores) > 0, scores, NA))
 }
 
-```
-
-```{r eval=FALSE, include=TRUE}
 # function for sentiment & objecticity of an abstract
 get_sentiment_objectivity_score = function(text){
     # Tokenize the abstract
@@ -455,7 +443,7 @@ get_sentiment_objectivity_score = function(text){
 }
 ```
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 get_sentiment_objectivity_score(article_may_13$abstract)
 ```
 
@@ -465,7 +453,7 @@ We can also see a pretty Neutral score using SentiWordNet. However this result i
 
 Because we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class if it's not
 arxiv$update_date <- as.Date(arxiv$update_date)
 
@@ -481,7 +469,7 @@ abstracts_on_specific_date
 
 The reason for the outliers is that for that certain day there have only been a small amount of research articles published. AND these articles have very positive / very negative sentiment. For now we will remove these articles from our data sample and see if we do something with them later on.
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class if it's not
 arxiv$update_date <- as.Date(arxiv$update_date)
 
@@ -493,9 +481,9 @@ arxiv_filtered <- arxiv[!(arxiv$update_date %in% dates_to_remove),]
 
 ```
 
-NRC
+### NRC
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class
 arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
 
@@ -533,9 +521,9 @@ p
 
 This is already better, we can see that the spikes in the rolling mean are not as present as before.
 
-VADER
+### VADER
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class
 arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
 
@@ -577,7 +565,7 @@ In this research Notebook we assume that abstracts reflect the overall sentiment
 
 To check this, we will randomly select 100 abstracts from our data sample. For each of these abstracts we will compute the sentiment using the NRC and VADER lexicons. If the sentiments of the actual texts correspond more or less to the ones from the abstracts, we can say that our assumption holds.
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 # Generate 100 random numbers between 1 and the number of rows in arxiv_filtered
 random_indices <- sample(1:nrow(arxiv_filtered), 100) # forgot the seed  ...
 
@@ -596,12 +584,12 @@ write.csv(arxiv_filtered_sampled, "arxiv_titles.csv", row.names = FALSE)
 Reading the file containing the texts
 
 ```{r}
-arxiv_texts <- read_csv("arxiv_text.csv")
+arxiv_texts <- read_csv("data/arxiv_text.csv")
 ```
 
 Cleaning the text for each paper
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 for(i in 1:nrow(arxiv_texts)){
   Text <- arxiv_texts$Text[i]
   # create a text corpus
@@ -624,7 +612,7 @@ for(i in 1:nrow(arxiv_texts)){
 
 Now we are going to perform the sentiment analysis on the texts
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv_texts$nrc_sen <- NA
 
 for (i in 1:nrow(arxiv_texts)) {
@@ -633,7 +621,7 @@ for (i in 1:nrow(arxiv_texts)) {
 }
 ```
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv_texts$vader_sen <- NA
 
 for (i in 1:nrow(arxiv_texts)) {
@@ -647,7 +635,7 @@ write.csv(arxiv_texts, "arxiv_text.csv", row.names = FALSE)
 ```
 
 ```{r}
-arxiv_texts <- read_csv("arxiv_text.csv")
+arxiv_texts <- read_csv("data/arxiv_text.csv")
 ```
 
 Merging both tables:
@@ -669,7 +657,7 @@ word_count <- sum(nchar(words) > 2)
 print(word_count)
 ```
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # Iterate over each element in 'nrc_sen_text'
 for(i in 1:length(df_combined)){
   # Access the element
@@ -701,11 +689,7 @@ df_combined$nrc_sen_abstract <- (df_combined$nrc_sen_abstract - min(df_combined$
 
 Let's visually compare the text and abtract sentiments
 
-```{r}
-# Load the necessary libraries
-library(plotly)
-library(dplyr)
-
+```{r include=TRUE, cache=TRUE}
 # Create a new column 'index' which will act as the x-axis
 df_combined$index <- 1:nrow(df_combined)
 
@@ -749,24 +733,10 @@ We can see that except for the last research paper, the 'error' is lower than 0.
 
 For topic modelling we will make use of the implementation suggested by Martin Schweinberger [here](https://ladal.edu.au/topicmodels.html).
 
-```{r}
-# load packages
-library(tm)
-library(topicmodels)
-library(reshape2)
-library(ggplot2)
-library(wordcloud)
-library(pals)
-library(SnowballC)
-library(lda)
-library(ldatuning)
-```
+### Loading and Preprocessing the data
 
-Loading and Preprocessing the data
-
-```{r}
-library(readr)
-df = readr::read_csv('arxiv_cleaned.csv')
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+df = read_csv('data/arxiv_sentiments.csv')
 
 corpus = Corpus(VectorSource(df$abstract))
 
@@ -778,7 +748,7 @@ processedCorpus <- tm_map(processedCorpus, stemDocument, language = "en")
 processedCorpus <- tm_map(processedCorpus, stripWhitespace)
 ```
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # compute document term matrix with terms >= minimumFrequency
 minimumFrequency <- 5
 DTM <- DocumentTermMatrix(processedCorpus, control = list(bounds = list(global = c(minimumFrequency, Inf))))
@@ -788,7 +758,7 @@ dim(DTM)
 
 Finding the best number of topics (took almost 3 hours to run, because every model needs to be constructed and evaluated)
 
-```{r eval=FALSE, include=TRUE}
+```{r eval=FALSE, include=TRUE, cache=TRUE}
 
 # create models with different number of topics 
 result <- FindTopicsNumber(
@@ -800,11 +770,11 @@ result <- FindTopicsNumber(
 FindTopicsNumber_plot(result)
 ```
 
-![](Rplot01.jpg){width="682"}
+![](topic.png){width="682"}
 
-LDA model
+### LDA model
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # number of topics
 K <- 20
 # set random number generator seed
@@ -813,9 +783,9 @@ set.seed(9161)
 topicModel <- LDA(DTM, K, method="Gibbs", control=list(iter = 1000, verbose = 25))
 ```
 
-Model Checking
+### Model Checking
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # have a look a some of the results (posterior distributions)
 tmResult <- posterior(topicModel)
 # format of the resulting object
@@ -832,22 +802,24 @@ dim(theta)               # nDocs(DTM) distributions over K topics
 rowSums(theta)[1:10]     # rows in theta sum to 1
 ```
 
-Results
+### Results
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 terms(topicModel, 10)
 ```
 
 Assigning Names to the Topics
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 top5termsPerTopic <- terms(topicModel, 5)
 topicNames <- apply(top5termsPerTopic, 2, paste, collapse=" ")
+topics <- apply(theta, 1, which.max)
+df$topic <- topicNames[topics]
 ```
 
 Visualizing Topic x as a Word Cloud
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 # visualize topics as word cloud
 topicToViz <- 3 # change for your own topic of interest
 # select top 40 most probable terms from the topic by sorting the term-topic-probability vector in decreasing order
@@ -862,7 +834,7 @@ wordcloud(words, probabilities, random.order = FALSE, color = mycolors)
 
 Visualize Topic proportions for example documents:
 
-```{r}
+```{r include=TRUE, cache=TRUE}
 exampleIds <- c(2, 100, 200)
 
 N <- length(exampleIds)
@@ -877,3 +849,141 @@ ggplot(data = vizDataFrame, aes(topic, value, fill = document), ylab = "proporti
   coord_flip() +
   facet_wrap(~ document, ncol = N)
 ```
+
+Now, it is possible to run sentiment analysis per topic. This additional experiment is expected to show any difference between topics and enables us to pinpoint some unique topics which may exhibit a different pattern than the rest.
+
+First of all, we again remove the same outliers explained before
+```{r include=TRUE, cache=TRUE}
+df$update_date <- as.Date(df$update_date)
+specific_date <- as.Date("2021-12-27")
+abstracts_on_specific_date <- df[df$update_date == specific_date,]
+df$update_date <- as.Date(df$update_date)
+dates_to_remove <- as.Date(c("2021-11-26","2021-11-28", "2021-12-27", "2022-05-01", "2022-09-06", "2022-09-25", "2023-05-13"))
+df <- df[!(df$update_date %in% dates_to_remove),]
+```
+
+The number of articles per topic seems to be fairly well distributed.
+
+```{r include=TRUE, cache=TRUE}
+counts <- table(df$topic)
+counts_df <- data.frame(A = names(counts), Count = as.numeric(counts))
+
+# Create bar plot
+p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
+  layout(xaxis = list(title = "A"), yaxis = list(title = "Count"), 
+         title = "Number of articles per Topic")
+# Display the plot
+p
+```
+
+```{r include=TRUE, cache=TRUE}
+generate_topic_plot_nrc <- function(topic) {
+  filtered_grouped <- df %>%
+    filter(topic == topic)
+  
+  filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+  
+  # Define start and end dates
+  start_date <- as.Date("2021-11-22")
+  end_date <- as.Date("2023-11-22")
+  
+  # Filter the data to include only two years of interest
+  filtered_grouped <- filtered_grouped %>%
+    filter(update_date >= start_date & update_date <= end_date)
+  
+  ###NRC
+  # Calculate the average sentiment score per day
+  arxiv_avg_nrc <- aggregate(filtered_grouped$nrc_sen, by=list(filtered_grouped$update_date), FUN=mean)
+  colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
+  
+  # Calculate the 7-day rolling mean of sentiment score
+  arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 30, fill = NA, align = "right")
+  
+  # Create a plotly line chart of the average sentiment score per day
+  p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+           xaxis = list(title = "Date"), 
+           yaxis = list(title = "Average Sentiment Score"))
+  
+  # Add the 7-day rolling mean to the plot
+  p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+  
+  # Add a red vertical line at 30 November 2022
+  marker_date <- as.Date("2022-11-30")
+  p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+  
+  # Return the plot
+  return(p)
+}
+
+generate_topic_plot_vader <- function(topic) {
+  filtered_grouped <- df %>%
+    filter(topic == topic)
+  
+  filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+  
+  # Define start and end dates
+  start_date <- as.Date("2021-11-22")
+  end_date <- as.Date("2023-11-22")
+  
+  # Filter the data to include only two years of interest
+  filtered_grouped <- filtered_grouped %>%
+    filter(update_date >= start_date & update_date <= end_date)
+  
+  ###Vader
+  # Calculate the average sentiment score per day
+  arxiv_avg_vader <- aggregate(filtered_grouped$vader_sen, by=list(filtered_grouped$update_date), FUN=mean)
+  colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+  
+  # Calculate the 7-day rolling mean of sentiment score
+  arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
+  
+  # Create a plotly line chart of the average sentiment score per day
+  p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+           xaxis = list(title = "Date"), 
+           yaxis = list(title = "Average Sentiment Score"))
+  
+  # Add the 7-day rolling mean to the plot
+  p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+  
+  # Add a red vertical line at 30 November 2022
+  marker_date <- as.Date("2022-11-30")
+  p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+  
+  # Display the plot
+  return(p)
+}
+```
+
+```{r include=TRUE, cache=TRUE}
+topic4 <- 'imag object method map deep'
+topic11 <- 'predict time use event seri'
+topic14 <- 'languag task generat use code'
+
+
+plot1 <- generate_topic_plot_nrc(topic4)
+plot2 <- generate_topic_plot_nrc(topic11)
+plot3 <- generate_topic_plot_nrc(topic14)
+
+plot1
+plot2
+plot3
+```
+
+Check this part more
+
+```{r include=TRUE, cache=TRUE}
+plot1 <- generate_topic_plot_vader(topic4)
+plot2 <- generate_topic_plot_vader(topic11)
+plot3 <- generate_topic_plot_vader(topic14)
+
+plot1
+plot2
+plot3
+```
+
+
+# Conclusion
+
+SAY SAY

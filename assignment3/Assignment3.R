@@ -696,9 +696,8 @@ fig
 ####################
 #  Topic modeling  #
 ####################
-
 # load packages
-df = read_csv('data/arxiv_cleaned.csv')
+df = read_csv('data/arxiv_sentiments.csv')
 head(df)
 dim(df)
 
@@ -811,8 +810,6 @@ dates_to_remove <- as.Date(c("2021-11-26","2021-11-28", "2021-12-27", "2022-05-0
 # Filter rows to remove specific dates
 df <- df[!(df$update_date %in% dates_to_remove),]
 
-
-############################################# The below works. The above no. Let's correct
 #Let's count a number of articles per TOPIC
 counts <- table(df$topic)
 counts_df <- data.frame(A = names(counts), Count = as.numeric(counts))
@@ -824,70 +821,134 @@ p <- plot_ly(counts_df, x = ~A, y = ~Count, type = 'bar') %>%
 # Display the plot
 p
 
+generate_topic_plot_nrc <- function(topic) {
+  filtered_grouped <- df %>%
+    filter(topic == topic)
+  
+  filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+  
+  # Define start and end dates
+  start_date <- as.Date("2021-11-22")
+  end_date <- as.Date("2023-11-22")
+  
+  # Filter the data to include only two years of interest
+  filtered_grouped <- filtered_grouped %>%
+    filter(update_date >= start_date & update_date <= end_date)
+  
+  ###NRC
+  # Calculate the average sentiment score per day
+  arxiv_avg_nrc <- aggregate(filtered_grouped$nrc_sen, by=list(filtered_grouped$update_date), FUN=mean)
+  colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
+  
+  # Calculate the 7-day rolling mean of sentiment score
+  arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 30, fill = NA, align = "right")
+  
+  # Create a plotly line chart of the average sentiment score per day
+  p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
+    layout(title = paste("Average Sentiment Score per Day (Topic:", topic, ")"), 
+           xaxis = list(title = "Date"), 
+           yaxis = list(title = "Average Sentiment Score"))
+  
+  # Add the 7-day rolling mean to the plot
+  p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+  
+  # Add a red vertical line at 30 November 2022
+  marker_date <- as.Date("2022-11-30")
+  p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+  
+  # Return the plot
+  return(p)
+}
+
+generate_topic_plot_vader <- function(topic) {
+  filtered_grouped <- df %>%
+    filter(topic == topic)
+  
+  filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+  
+  # Define start and end dates
+  start_date <- as.Date("2021-11-22")
+  end_date <- as.Date("2023-11-22")
+  
+  # Filter the data to include only two years of interest
+  filtered_grouped <- filtered_grouped %>%
+    filter(update_date >= start_date & update_date <= end_date)
+  
+  ###Vader
+  # Calculate the average sentiment score per day
+  arxiv_avg_vader <- aggregate(filtered_grouped$vader_sen, by=list(filtered_grouped$update_date), FUN=mean)
+  colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+  
+  # Calculate the 7-day rolling mean of sentiment score
+  arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
+  
+  # Create a plotly line chart of the average sentiment score per day
+  p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+    layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
+           xaxis = list(title = "Date"), 
+           yaxis = list(title = "Average Sentiment Score"))
+  
+  # Add the 7-day rolling mean to the plot
+  p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+  
+  # Add a red vertical line at 30 November 2022
+  marker_date <- as.Date("2022-11-30")
+  p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+  
+  # Display the plot
+  return(p)
+}
+
+topic4 <- 'imag object method map deep'
+topic11 <- 'predict time use event seri'
+topic14 <- 'languag task generat use code'
+
+plot1 <- generate_topic_plot_nrc(topic4)
+plot2 <- generate_topic_plot_nrc(topic11)
+plot3 <- generate_topic_plot_nrc(topic14)
+
+plot1
+plot2
+plot3
+
+plot1 <- generate_topic_plot_vader(topic4)
+plot2 <- generate_topic_plot_vader(topic11)
+plot3 <- generate_topic_plot_vader(topic14)
+
+plot1
+plot2
+plot3
+
+
+
 
 #####
-TOPIC = 'languag task generat use code'
+# Scopus Sentiment Analysis
+####
+scopus <- read.csv('data/scopus_cleaned.csv')
+scopus <- scopus[, -10]
+scopus$cover_date <- as.Date(scopus$cover_date, format = "%Y-%m-%d")
+scopus <- scopus[scopus$cover_date >= as.Date("1970-01-01"),]
+head(scopus)
 
-filtered_grouped <- grouped %>%
-  filter(topic == TOPIC)
+scopus$vader_sen <- NA
+for (i in 1:nrow(scopus)) {
+  vader_sentiment <- get_vader(scopus$abstract[i])[2]
+  scopus$vader_sen[i] <- vader_sentiment
+}
 
-filtered_grouped$update_date <- as.Date(filtered_grouped$update_date)
+scopus$nrc_sen <- NA
+for (i in 1:nrow(scopus)) {
+  nrc_sentiment <- get_sentiment(scopus$abstract[i], method="syuzhet")
+  scopus$nrc_sen[i] <- nrc_sentiment
+}
 
-# Define start and end dates
-start_date <- as.Date("2021-11-22")
-end_date <- as.Date("2023-11-22")
+scopus$abstract_sen <- NA
 
-# Filter the data to include only two years of interest
-filtered_grouped <- filtered_grouped %>%
-  filter(update_date >= start_date & update_date <= end_date)
+for (i in 1:nrow(scopus)) {
+  sentiment <- get_sentiment(scopus$abstract[i], method="syuzhet")
+  scopus$abstract_sen[i] <- sentiment
+}
 
-###NRC
-# Calculate the average sentiment score per day
-arxiv_avg_nrc <- aggregate(filtered_grouped$nrc_sen, by=list(filtered_grouped$update_date), FUN=mean)
-colnames(arxiv_avg_nrc) <- c("Date", "Avg_Sentiment")
-
-# Calculate the 7-day rolling mean of sentiment score
-arxiv_avg_nrc$Rolling_Mean <- rollmean(arxiv_avg_nrc$Avg_Sentiment, k = 30, fill = NA, align = "right")
-
-# Create a plotly line chart of the average sentiment score per day
-p <- plot_ly(arxiv_avg_nrc, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_NRC') %>%
-  layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
-         xaxis = list(title = "Date"), 
-         yaxis = list(title = "Average Sentiment Score"))
-
-# Add the 7-day rolling mean to the plot
-p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
-
-# Add a red vertical line at 30 November 2022
-marker_date <- as.Date("2022-11-30")
-p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
-
-# Display the plot
-p
-
-
-###VADER
-# Calculate the average sentiment score per day
-arxiv_avg_vader <- aggregate(filtered_grouped$vader_sen, by=list(filtered_grouped$update_date), FUN=mean)
-colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
-
-# Calculate the 7-day rolling mean of sentiment score
-arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
-
-# Create a plotly line chart of the average sentiment score per day
-p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
-  layout(title = paste("Average Sentiment Score per Day (Topic:", TOPIC, ")"), 
-         xaxis = list(title = "Date"), 
-         yaxis = list(title = "Average Sentiment Score"))
-
-# Add the 7-day rolling mean to the plot
-p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
-
-# Add a red vertical line at 30 November 2022
-marker_date <- as.Date("2022-11-30")
-p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
-
-# Display the plot
-p
-
-############################################# 
+scopus_avg <- aggregate(scopus$abstract_sen, by=list(scopus$date), FUN=mean)
+colnames(scopus_avg) <- c("Year", "Avg_Sentiment")
