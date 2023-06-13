@@ -83,6 +83,8 @@ library(syuzhet)
 
 ## Data 1: Wikipedia + _Scopus_
 
+First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles.
+
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
 url <- "https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pageuntil=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages"
@@ -211,9 +213,7 @@ arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(form
 head(arxiv)
 ```
 
-### Cleaning
-
-```{r eval=FALSE, warning=FALSE, include=FALSE, cache=TRUE}
+```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # Loop through the texts in the abstract column
 for(i in 1:nrow(arxiv)){
   abstract <- arxiv$abstract[i]
@@ -239,10 +239,104 @@ for(i in 1:nrow(arxiv)){
 write.csv(arxiv, "arxiv_cleaned.csv", row.names = FALSE)
 ```
 
+## Exploratory Data Analysis
+
+First, we explore the data and check their structures to obtain a better understanding.
+
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+## Scopus
+scopus <- read.csv('data/scopus_cleaned.csv')
+scopus <- scopus[, -10]
+scopus$cover_date <- as.Date(scopus$cover_date, format = "%Y-%m-%d")
+scopus <- scopus[scopus$cover_date >= as.Date("1970-01-01"),]
+
+# Create a new column with the year of the cover date
+scopus$year <- format(scopus$cover_date, "%Y")
+
+# Create a histogram of the amount of articles per year
+plot_ly(scopus, x = ~year, type = "histogram") %>%
+  layout(title = "Amount of Articles per Year", xaxis = list(title = "Year"), yaxis = list(title = "Count"))
+```
+
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+# Group the data by author and count the number of articles
+author_counts <- scopus %>%
+  group_by(last_name, first_name) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count)) %>%
+  head(30)
+
+# Combine first_name and last_name to a single column for the plot
+author_counts <- author_counts %>%
+  mutate(author = paste(first_name, last_name)) %>%
+  arrange(desc(count))  # Ensure the data frame is sorted by count
+
+# Convert the author column to a factor and specify the levels to match the order in the data frame
+author_counts$author <- factor(author_counts$author, levels = author_counts$author)
+
+# Create a barplot of the top 20 authors
+plot_ly(author_counts, x = ~author, y = ~count, type = "bar") %>%
+  layout(title = "Top 30 Authors by Article Count", xaxis = list(title = "Author"), yaxis = list(title = "Count"))
+```
+
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+# Order the data by count
+desc_counts <- scopus %>%
+  group_by(description) %>%
+  summarize(count = n(), .groups = "drop") %>%
+  arrange(desc(count))
+
+# Create a factor variable with the ordered descriptions
+desc_counts$description <- factor(desc_counts$description, levels = desc_counts$description)
+
+# Create a barplot of the ordered descriptions
+plot_ly(desc_counts, x = ~description, y = ~count, type = "bar") %>%
+  layout(title = "Description Barplot", xaxis = list(title = "Description"), yaxis = list(title = "Count"))
+```
+
+Arxiv
+
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+# Create a histogram of the amount of articles per year with padding
+plot_ly(arxiv, x = ~year, type = "histogram") %>%
+  layout(title = "Amount of Articles per Year", xaxis = list(title = "Year", automargin = TRUE), yaxis = list(title = "Count", automargin = TRUE, margin = list(l = 50, r = 50, b = 50, t = 50, pad = 4)), bargap = 0.1)
+```
+
+
 
 # 4. Sentiment Analysis
 
 ## Visualization
+
+```{r warning=FALSE, include=TRUE, cache=TRUE}
+# Add a new column called 'abstract_sen' to the 'scopus' dataframe
+scopus$abstract_sen <- NA
+# Loop through each row of the dataframe and calculate the sentiment score for the abstract
+for (i in 1:nrow(scopus)) {
+  sentiment <- get_sentiment(scopus$abstract[i], method="syuzhet")
+  scopus$abstract_sen[i] <- sentiment
+}
+
+# Calculate the average sentiment score per year
+scopus_avg <- aggregate(scopus$abstract_sen, by=list(scopus$date), FUN=mean)
+colnames(scopus_avg) <- c("Year", "Avg_Sentiment")
+
+# Create a plotly line chart of the average sentiment score per year
+plot_ly(scopus_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines+markers') %>%
+  layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
+
+# Order the data by cover_date
+scopus <- scopus[order(scopus$cover_date),]
+
+# Calculate the rolling average of abstract_sen with a window of 2 months
+scopus$rolling_avg <- rollmean(scopus$abstract_sen, k = 60, fill = NA, align = "right")
+
+# Create a plotly line chart of the rolling average sentiment score per cover date
+plot_ly(scopus, x = ~cover_date, y = ~rolling_avg, type = 'scatter', mode = 'lines') %>%
+  layout(title = "Rolling Average Sentiment Score per Cover Date", xaxis = list(title = "Cover Date"), yaxis = list(title = "Rolling Average Sentiment Score")) 
+```
+
+Explain the pattern
 
 ```{r include=TRUE, cache=TRUE}
 arxiv <- read_csv("data/arxiv_cleaned.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
