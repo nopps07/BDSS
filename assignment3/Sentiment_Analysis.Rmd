@@ -14,7 +14,7 @@ This notebook is used for collaborative works.
 
 Artificial Intelligence (AI) has been widely studied and researched for a long time, and nowadays the AI technology influences human lives in a significant way. Its service is no longer limited to business owners but also any individuals. Many experts have stressed that AI would become a game changer in a short time, leaving the idea that the general opinion of academia and industry favoured the new technology. However, the rise of ChatGPT, a chatbot developed by OpenAI, has significantly shaped the world in a very unexpected and unpredictable way. The power of ChatGPT and its impact is far beyond our imagination. Ironically, due to its potentials, the world figures that it has created negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria. Scammers utilized generative AI technology to create a fake image of a firefighter holding a victim to trick people into donating money.
 
-![fake](assignment3/fake.png)
+![fake](fake.png)
 
 Source: Hannah Gelbart, "Scammers profit from Turkey-Syria earthquake" in BBC, 14 Feb 2023
 	
@@ -26,7 +26,7 @@ The perception of ChatGPT has slightly decreased since its debut. Moreover, the 
 
 The debate about a proper usage of AI is intensely led by leading AI experts and leaves challenging questions to the public. Geoffrey Hinton, who has been named as AI pioneer or Godfather of AI, has recently decided to leave Google with regrets and fears about his life’s work in AI. In other words, the sentiment of AI seems to have changed dramatically ever since the birth of ChatGPT. Besides, the problem is that such discussions are done among the experts and hence their voices are likely to influence public opinions towards the AI technology.
 	
-![hinton](assignment3/hinton.jpg)
+![hinton](hinton.jpg)
 Source: Cade Metz, "The Godfather of A.I.’ Leaves Google and Warns of Danger Ahead" in New York Times
 
 [2] aims to explore the public perception of risks associated with AI. The authors analyse twitter data and investigate the emergence and prevalence of risks associated with AI. A significant finding is that the perception of AI risk is primarily linked to existential risks, which gained popularity after late 2014. This perception is primarily influenced by expert opinions rather than actual disasters.
@@ -60,24 +60,34 @@ Even though that the authors of the papers are expected to be _influential_, we 
 
 The following code loads every library used in this research notebook.
 
-```{r include=FALSE}
-library(plotly)
+```{r include=TRUE, cache=TRUE}
+library(rscopus)
+library(dplyr)
+library(rvest)
 library(tm)
-library(tidyverse)
-library(syuzhet)
+library(topicmodels)
+library(reshape2)
+library(ggplot2)
+library(wordcloud)
+library(pals)
+library(SnowballC)
+library(lda)
+library(ldatuning)
+library(readr)
+library(lubridate)
 library(plotly)
 library(zoo)
+library(tidytext)
+library(dplyr)
+library(textdata)
 library(vader)
-library(readr)
-
-# API extraction
-library(rscopus)
-library(rvest)
+library(tidytext)
+library(syuzhet)
 ```
 
 ## Data 1: Wikipedia + _Scopus_
 
-```{r eval=FALSE, warning=FALSE, include=TRUE}
+```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
 url <- "https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pageuntil=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages"
 
@@ -114,21 +124,10 @@ clean_names <- gsub("\\(.*\\)", "", all_researchers)  # Remove text within brack
 clean_names <- trimws(clean_names)  # Remove leading/trailing white spaces
 
 print(clean_names)
-
-# TODO Elesevier API is done in my local drive. I will move the codes here later.
-# Steps
-
-# Step 1
-# extract the publication from every researcher included in "clean_names"
-# some have published excessive amounts of paper, which would create bias caused by those authors
-# Hence, we RANDOMLY select N (initially set as 30) from each researcher
-
-# Step 2
-# Extract Abstracts from DOI in Step 1
 ```
 
 
-```{r eval=FALSE, warning=FALSE, include=TRUE}
+```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 ## To run this code, you first need to include a valid Scopus API key in your local system. 
 ## Please directly run the next code if you do not intend to repeat the data preparation process.
 
@@ -212,13 +211,13 @@ scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data
 
 ```{r}
 library(readr)
-arxiv <- read_csv("arxiv.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
+arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
 head(arxiv)
 ```
 
 ## Cleaning
 
-```{r eval=FALSE, warning=FALSE, include=FALSE}
+```{r eval=FALSE, warning=FALSE, include=FALSE, cache=TRUE}
 # Loop through the texts in the abstract column
 for(i in 1:nrow(arxiv)){
   abstract <- arxiv$abstract[i]
@@ -246,13 +245,9 @@ for(i in 1:nrow(arxiv)){
 
 ## Analysis with visuals
 
-```{r}
-arxiv <- read_csv("arxiv_sentiments.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
-#arxiv <- read_csv("arxiv_cleaned.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
+```{r, cache=TRUE}
+arxiv <- read_csv("data/arxiv_cleaned.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
 
-
-
-######################
 # Add a new column called 'abstract_sen' to the 'data_test_cleaned' dataframe
 arxiv$nrc_sen <- NA
 
@@ -279,7 +274,7 @@ plot_ly(arxiv_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'line
 
 Adding Vader sentiment column (very intensive to run)
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE, include=FALSE, cache=TRUE}
 arxiv$vader_sen <- NA
 
 for (i in 1:nrow(arxiv)) {
@@ -288,18 +283,13 @@ for (i in 1:nrow(arxiv)) {
 }
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r eval=FALSE, include=FALSE, cache=TRUE}
 write.csv(arxiv, "arxiv_sentiments.csv", row.names = FALSE)
 ```
 
 comparison between the year before and after chatgpt:
 
-```{r}
-# Load necessary libraries
-library(lubridate)
-library(plotly)
-library(zoo)
-
+```{r, cache=TRUE}
 # Convert update_date to Date class
 arxiv$update_date <- as.Date(arxiv$update_date)
 
@@ -342,10 +332,9 @@ We can see that after the release of ChatGPT there is a slightly increasing tren
 
 let's take a look at one of our outliers:
 
-```{r}
+```{r, cache=TRUE}
 # Filter the data to include only the article from May 13, 2022
-article_may_13 <- arxiv_filtered %>%
-  filter(update_date == as.Date("2022-05-01"))
+article_may_13 <- arxiv_filtered %>% filter(update_date == as.Date("2022-05-01"))
 
 # Display the article
 print(article_may_13$abstract)
@@ -366,15 +355,9 @@ Using the Bing and afinn lexicon we only have a match with 2 words, using the lo
 
 According to ChatGPT, recommended lexicons for research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
 
-```{r}
-# Load necessary library
-library(tidytext)
-library(dplyr)
-library(textdata)
-
+```{r, cache=TRUE}
 # Tokenize the abstract into individual words
-words <- article_may_13 %>%
-  unnest_tokens(word, abstract)
+words <- article_may_13 %>% unnest_tokens(word, abstract)
 
 # Add sentiment scores to each word
 word_sentiment <- words %>%
@@ -395,7 +378,7 @@ get_vader(article_may_13$abstract)[2]
 
 Let's add a curve to the previous plot that show the Daily Average Sentiment but using VADER for the sentiment calculation.
 
-```{r}
+```{r, warning=FALSE, include=TRUE, cache=TRUE}
 # Calculate the average sentiment score per day
 arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
 colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
