@@ -225,6 +225,11 @@ arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(form
 head(arxiv)
 ```
 
+### Cleaning
+
+The abstracts that we have for now are not cleaned. They include punctuation, numbers, and stopwords. The `tm` package will be used here for the cleaning process.
+First we create a corpus of the abstracts, then we clean them using the `tm_map` function. Finally, we replace the initial abstracts with the cleaned ones.
+
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # Loop through the texts in the abstract column
 for(i in 1:nrow(arxiv)){
@@ -234,11 +239,11 @@ for(i in 1:nrow(arxiv)){
 
   # clean the abstracts
   corpus_clean <- corpus %>%
-    tm_map(content_transformer(tolower)) %>%
-    tm_map(removePunctuation) %>%
-    tm_map(removeNumbers) %>%
-    tm_map(removeWords, stopwords("en")) %>%
-    tm_map(stripWhitespace)
+    tm_map(content_transformer(tolower)) %>% # convert to lower case
+    tm_map(removePunctuation) %>% # remove punctuation
+    tm_map(removeNumbers) %>% # remove numbers
+    tm_map(removeWords, stopwords("en")) %>% # remove stopwords
+    tm_map(stripWhitespace) # remove extra white spaces
 
   abstract_clean <- as.character(corpus_clean[[1]])
   
@@ -247,13 +252,15 @@ for(i in 1:nrow(arxiv)){
 }
 ```
 
+We save the cleaned data in a csv file named `arxiv_cleaned.csv`.
+
 ```{r eval=FALSE, include=TRUE}
 write.csv(arxiv, "arxiv_cleaned.csv", row.names = FALSE)
 ```
 
 ## Exploratory Data Analysis
 
-First, we explore the data and check their structures to obtain a better understanding.
+Before proceeding to the actual Analysis, we explore the data and check their structures to obtain a better understanding.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 ## Scopus
