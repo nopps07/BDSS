@@ -219,8 +219,8 @@ scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data
 
 ## Data 2: Arxiv
 
-```{r}
-library(readr)
+```{r warning=FALSE}
+# Read the arxiv data
 arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
 head(arxiv)
 ```
@@ -232,7 +232,7 @@ for(i in 1:nrow(arxiv)){
   # create a text corpus
   corpus <- Corpus(VectorSource(abstract))
 
-  # preprocess text
+  # clean the abstracts
   corpus_clean <- corpus %>%
     tm_map(content_transformer(tolower)) %>%
     tm_map(removePunctuation) %>%
