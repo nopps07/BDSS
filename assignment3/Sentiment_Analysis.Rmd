@@ -486,13 +486,9 @@ print(word_sentiment)
 
 ### VADER
 
-VADER is made for social media so it has a bit of difficulties matching words as well but it is doing OK. We get a pretty neutral compound.
-
-```{r}
-vader::get_vader(article_may_13$abstract)[2]
-```
-
-Adding Vader sentiment column (very intensive to run)
+VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media. 
+It is thus not clear if it will work well on research papers. Let's try it out.
+**Note that computing sentiment scores using the VADER lexicon is very intensive**
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv$vader_sen <- NA
@@ -505,7 +501,8 @@ for (i in 1:nrow(arxiv)) {
 write.csv(arxiv, "arxiv_sentiments.csv", row.names = FALSE)
 ```
 
-Let's add a curve to the previous plot that show the Daily Average Sentiment but using VADER for the sentiment calculation.
+
+Let's create a new plot that show the Daily Average Sentiment but using VADER for the sentiment calculation.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Calculate the average sentiment score per day
@@ -516,13 +513,13 @@ colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
 arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 14, fill = NA, align = "right")
 
 # Create a plotly line chart of the average sentiment score per day
-p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average VADER') %>%
   layout(title = "Average Sentiment Score per Day", 
          xaxis = list(title = "Date"), 
          yaxis = list(title = "Average Sentiment Score"))
 
 # Add the 7-day rolling mean to the plot
-p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '14-day Rolling Mean NRC')
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '14-day Rolling Mean VADER')
 
 # Add a red vertical line at 30 November 2022
 marker_date <- as.Date("2022-11-30")
@@ -533,9 +530,13 @@ p
 
 ```
 
-We can somewhat see the same trend as when using the NRC lexicon, but it is softer.
+We can somewhat see the same trend for the 14-day Rolling Mean as when using the NRC lexicon, but it is softer. We also notice that the outliers are present in the VADER lexicon as well.
 
 ### SentiWordNet:
+
+The Sentiment WordNet is a lexical resource for opinion mining. It is built on top of WordNet, a lexical database for the English language. 
+SentiWordNet assigns to each synset of WordNet three sentiment scores: positivity, negativity, objectivity. Source: https://github.com/aesuli/SentiWordNet/blob/master/papers/LREC06.pdf 
+**Do WE INCLUDE THIS OR NOT ?**
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 # Read in the SentiWordNet scores
