@@ -448,7 +448,10 @@ We can also see negative as well as positive spikes in the sentiment score. Let'
 ## Deeper Analysis
 
 By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these scored higly positive or negative. 
-Luckily we only have 6 days over the period of 2 years where this happens so we will just remove these outliers from our dataset.
+Why these were higly positive or negative is not clear. When using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC lexicon has the most matches.
+
+According to ChatGPT, recommended lexicons for analyzing research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
+
 
 ```{r include=TRUE, cache=TRUE}
 # Filter the data to include only the article from May 1, 2022
@@ -587,22 +590,7 @@ We can also see a pretty Neutral score using SentiWordNet. However this result i
 ## Outliers Removal
 
 Because we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
-
-```{r include=TRUE, cache=TRUE}
-# Convert update_date to Date class if it's not
-arxiv$update_date <- as.Date(arxiv$update_date)
-
-# Specify the date you are interested in
-specific_date <- as.Date("2021-12-27")
-
-# Filter rows for the specific date
-abstracts_on_specific_date <- arxiv[arxiv$update_date == specific_date,]
-
-# Now, abstracts_on_specific_date will contain only the rows of arxiv where the update_date is 26 NOV 2021
-abstracts_on_specific_date
-```
-
-The reason for the outliers is that for that certain day there have only been a small amount of research articles published. AND these articles have very positive / very negative sentiment. For now we will remove these articles from our data sample and see if we do something with them later on.
+Luckily we only have 6 days over the period of 2 years where this happens so we will just remove these outliers from our dataset.
 
 ```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class if it's not
