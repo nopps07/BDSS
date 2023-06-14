@@ -900,24 +900,28 @@ generate_topic_plot_vader <- function(t) {
 }
 
 topic4 <- 'imag object method map deep'
+topic7 <- 'network neural deep architectur convolut'
+topic10 <- 'interpret decis human explain understand'
 topic11 <- 'predict time use event seri'
 topic14 <- 'languag task generat use code'
+topic15 <- 'research develop applic intellig challeng'
+topic18 <- 'featur classif use propos method'
 
-plot1 <- generate_topic_plot_nrc(topic4)
-plot2 <- generate_topic_plot_nrc(topic11)
-plot3 <- generate_topic_plot_nrc(topic14)
+generate_topic_plot_nrc(topic4)
+generate_topic_plot_nrc(topic7)
+generate_topic_plot_nrc(topic10)
+generate_topic_plot_nrc(topic11)
+generate_topic_plot_nrc(topic14)
+generate_topic_plot_nrc(topic15)
+generate_topic_plot_nrc(topic18)
 
-plot1
-plot2
-plot3
 
-plot1 <- generate_topic_plot_vader(topic4)
-plot2 <- generate_topic_plot_vader(topic11)
-plot3 <- generate_topic_plot_vader(topic14)
-
-plot1
-plot2
-plot3
+#plot1 <- generate_topic_plot_vader(topic4)
+#plot2 <- generate_topic_plot_vader(topic11)
+#plot3 <- generate_topic_plot_vader(topic14)
+#plot1
+#plot2
+#plot3
 
 
 
