@@ -18,7 +18,7 @@ The study result indicates that the sentiment around ChatGPT is generally positi
 
 The perception of ChatGPT has slightly decreased since its debut. Moreover, the sentiment varies among different languages, with English tweets having the most positive views of ChatGPT. The content of positive sentiment focuses on admiration of ChatGPT’s abilities, while negative sentiment expresses concerns about potential inaccuracies, detectability of AI-generated text, potential job loss and ethical concerns. Overall, the analysis suggests that the sentiment about AI, specifically ChatGPT, has changed since its launch, with a decrease in overall sentiment and a shift towards more rational views.
 
-The debate about a proper usage of AI is intensely led by leading AI experts and leaves challenging questions to the public. Geoffrey Hinton, who has been named as AI pioneer or Godfather of AI, has recently decided to leave Google with regrets and fears about his life’s work in AI. In other words, the sentiment of AI seems to have changed dramatically ever since the birth of ChatGPT. Besides, the problem is that such discussions are done among the experts and hence their voices are likely to influence public opinions towards the AI technology.
+The debate about a proper usage of AI is intensely led by leading AI experts and leaves challenging questions to the public. Geoffrey Hinton, who has been named as AI pioneer or Godfather of AI, has recently decided to leave Google with regrets and fears about his life’s work in AI. This circumstance may indicate that the sentiment of AI has changed dramatically ever since the birth of ChatGPT. Besides, the problem is that such discussions are done among the experts and hence their voices are likely to influence public opinions towards the AI technology.
 	
 ![](hinton.jpg)
 Source: Cade Metz, "The Godfather of A.I.’ Leaves Google and Warns of Danger Ahead" in New York Times
@@ -31,35 +31,7 @@ In conclusion, we are able to formulate the hypothesis that the sentiment of AI 
 
 #### _**The sentiment of AI in academia has changed since the launch of ChatGPT**_
 
-To answer this formulated question, we attempt to apply sentiment analysis on the published academic journals. EXPLAIN MORE IN HERE!
-
-# 2. Data
-
-Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the AI experts. To answer, we extract the researchers listed in ["Artificial Intelligence researchers"]([url](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages)) in Wikipedia. After finding those 416 researchers, we utilize Scopus APIs to extract the published papers of the researchers, including the following elements:
-
-* First and Last Name
-* Title
-* Journal
-* Description (Type of paper: Article, Review, Book Chapter, etc)
-* Cover Date
-* DoI
-
-Initially, the total number of the papers is 56,939. Next, DoI is required to extract **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers.
-
-Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we follow one more data collection in order to enlarge the inventory. 
-
-For more than 30 years, ArXiv has been the most popular preprint server in the world. It is a free distribution service and an open-access archive for scholarly articles in different fields like physics, mathematics, computer science, quantitative biology, etc. 
-More than 1.7 million research articles are accessible via the ArXiv API. For these articles, the API provides metadata such as title, authors, abstract, publication date, and category. The API also provides the full text of the articles in different formats.
-However, for our paticular use case, we are only interested in the abstracts of the articles. Therefore, we will use the arXiv dataset from Kaggle, which contains 1.7 million articles with their metadata and abstracts. The dataset is available in CSV format and can be downloaded from [here](https://www.kaggle.com/Cornell-University/arxiv).
-
-The dataset we will be working with contains the following columns:
-
-* authors: 
-* title
-* update_date (The date the article was last updated)
-* abstract
-
-After having filtered the data on the same keywords as the Scopus dataset, we are left with a total of 80,973 articles. Even though most of these articles are not peer-reviewed, we believe that this dataset will still provide us with valuable insights on the public perception of AI.
+To answer this formulated question, we attempt to apply sentiment analysis to published academic journals specifically related to AI. This research design is expected to provide interesting insights into the emotional tone and subjective opinions expressed in academic papers. Further, it helps us to grasp the sentiment inherent in specific topics and explore the emotional impact of research over the years. 
 
 ## Imports
 
@@ -92,9 +64,22 @@ library(tidytext)
 library(syuzhet)
 ```
 
-## Data 1: Wikipedia + _Scopus_
+# 2. Data
 
-First of all, we extract the list of the AI researchers from the Wikipedia website. After cleaning the extracted data, we use the information in order to obtain the researchers' published articles via Scopus API. 
+## 2.1. Data I: Scopus
+
+Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the meaning of the AI experts. For instance, it might not be proper to say that publishing one article makes you an expert. To answer this, we extract the researchers listed in ["Artificial Intelligence researchers"]([url](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages)) in Wikipedia as those researchers are somehow proven to be influential considering their contribution to the field.
+
+After finding those 416 researchers, we utilize Scopus APIs to extract the published papers of the researchers, including the following elements:
+
+* First and Last Name
+* Title
+* Journal
+* Description (Type of paper: Article, Review, Book Chapter, etc)
+* Cover Date
+* DoI
+
+Initially, the total number of the papers is 56,939. Next, DoI is required to extract **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers. The codes below demonstrate all the steps described here.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
@@ -135,9 +120,9 @@ clean_names <- trimws(clean_names)  # Remove leading/trailing white spaces
 print(clean_names)
 ```
 
-As noted in the code chunk below, you have to record your own Scopus API key in your local system to be able to utilize the service. 
+As noted in the code chunk below, you have to add your own Scopus API key in your local system to be able to utilize the API service. 
 
-After a number of data cleaning processes, we save the data into a cleaned version, and we reload this cleaned file for further analysis so that users can follow the analysis without problems.
+After a number of data cleaning processes, we save the data into a cleaned version. We reload this cleaned file for further analysis so that users can follow the analysis without problems.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 ## To run this code, you first need to include a valid Scopus API key in your local system. 
@@ -206,12 +191,10 @@ for (doi in merged_results_noNA$doi) {
 
 # Merge the individual abstracts into a data frame
 merged_abstracts <- data.frame(doi = names(abstracts), abstract = unlist(abstracts))
-
-# Merge "merged_abstracts" and "merged_result" based on doi
 # Merge the abstracts and results based on DOI
 merged_data <- merge(merged_abstracts, merged_results_noNA, by = "doi", all.x = TRUE)
 
-# Select the desired columns
+# Select the needed columns
 merged_data <- merged_data[, c("doi", "abstract", "title", "journal", "description","cover_date", "first_name", "last_name")]
 
 ## Final Filtering 
@@ -219,7 +202,20 @@ keywords <- c("artificial intelligence", "AI", "Machine Learning", "ML", "deep l
 scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data$abstract), ]
 ```
 
-## Data 2: Arxiv
+Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we conduct one additional data collection in order to enlarge the inventory. 
+
+## 2.2. Data II: ArXiv
+
+For more than 30 years, ArXiv has been the most popular preprint server in the world. It is a free distribution service and an open-access archive for scholarly articles in different fields like physics, mathematics, computer science, quantitative biology, etc. 
+More than 1.7 million research articles are accessible via the ArXiv API. For these articles, the API provides metadata such as title, authors, abstract, publication date, and category. The API also provides the full text of the articles in different formats.
+However, for our particular use case, we are only interested in the abstracts of the articles. Therefore, we will use the arXiv dataset from Kaggle, which contains 1.7 million articles with their metadata and abstracts. The dataset is available in CSV format and can be downloaded from [here](https://www.kaggle.com/Cornell-University/arxiv). The dataset contains the following columns:
+
+* authors: 
+* title
+* update_date (The date the article was last updated)
+* abstract
+
+After having filtered the data on the same keywords as the Scopus dataset, we are left with a total of 80,973 articles. Even though most of these articles are not peer-reviewed, we believe that this dataset will still provide us with valuable insights on the public perception of AI. Yet, this approach might remain as a limitation of our research design since it is difficult to conclude all these articles are influential.
   
 **I don't know if this runs or not, translated code from python to R, but 8GB of RAM not enough to open the json in R on my pc** - **Gunho: We let it not run. We just show that it is the way to get 'arxiv.csv' file**
 
@@ -262,8 +258,7 @@ arxiv <- read_csv("data/arxiv.csv", col_types = cols(update_date = col_date(form
 head(arxiv)
 ```
 
-The abstracts that we have for now are not cleaned. They include punctuation, numbers, and stopwords. The `tm` package will be used here for the cleaning process.
-First we create a corpus of the abstracts, then we clean them using the `tm_map` function. Finally, we replace the initial abstracts with the cleaned ones.
+The extracted abstracts include punctuation, numbers, and stopwords, which are unnecessary items to conduct sentiment analysis. Hence, we take one more cleaning process to erase all the obstacles. After the completion, we replace the initial abstracts with the cleaned version.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # Loop through the texts in the abstract column
@@ -287,13 +282,13 @@ for(i in 1:nrow(arxiv)){
 }
 ```
 
-We save the cleaned data in a csv file named `arxiv_cleaned.csv`.
+We save the cleaned data in a csv file named `arxiv_cleaned.csv`, and again reload this file for readers as the data cleaning may take long time to be completed.
 
 ```{r eval=FALSE, include=TRUE}
 write.csv(arxiv, "arxiv_cleaned.csv", row.names = FALSE)
 ```
 
-## Exploratory Data Analysis
+## 2.3. Exploratory Data Analysis
 
 Before proceeding to the actual Analysis, we explore the data and check their structures to obtain a better understanding. Let's start with the Scopus case.
 
@@ -335,7 +330,7 @@ plot_ly(author_counts, x = ~author, y = ~count, type = "bar") %>%
   layout(title = "Top 30 Authors by Article Count", xaxis = list(title = "Author"), yaxis = list(title = "Count"))
 ```
 
-we can see that W Ross has the most amount of articles *** he died in 1972 ??? ***
+We find that Michael W Ross has the biggest amounts of articles in the data, but the distribution is fairly well distributed and hence expected amounts of bias from class imbalance would not be significant.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Order the data by count
@@ -366,10 +361,9 @@ plot_ly(arxiv, x = ~year, type = "histogram") %>%
 ```
 
 
-
 # 3. Sentiment Analysis
 
-## Visualization
+## 3.1. Visualization
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Add a new column called 'abstract_sen' to the 'scopus' dataframe
