@@ -743,6 +743,48 @@ p
 
 The outlier removal seems to have erased the spikes in the rolloing mean that were present before.
 
+### 3.2.4. VADER lexicon (after outlier removal)
+
+```{r include=TRUE, cache=TRUE}
+# Convert update_date to Date class
+arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
+
+# Define start and end dates
+start_date <- as.Date("2021-11-22")
+end_date <- as.Date("2023-11-22")
+
+# Filter the data to include only two years of interest
+arxiv_filtered <- arxiv_filtered %>%
+  filter(update_date >= start_date & update_date <= end_date)
+
+# Calculate the average sentiment score per day
+arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
+colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
+
+# Calculate the 7-day rolling mean of sentiment score
+arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
+
+# Create a plotly line chart of the average sentiment score per day
+p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
+  layout(title = "Average Sentiment Score per Day", 
+         xaxis = list(title = "Date"), 
+         yaxis = list(title = "Average Sentiment Score"))
+
+# Add the 7-day rolling mean to the plot
+p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
+
+# Add a red vertical line at 30 November 2022
+marker_date <- as.Date("2022-11-30")
+p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
+
+# Display the plot
+p
+```
+
+The same pattern appears in the VADER lexicon. Thus, we conclude that the outlier removal brings a better outcome overall. 
+
+### 3.2.5. Statistical significance test
+
 Let's see if there is a significant difference between the year before and after the release of ChatGPT. Because our data is not normally distributed, we will use a t-test.
 Assumptions for the t-test are:
 
@@ -787,44 +829,6 @@ t.test(before, after, var.equal = FALSE)
 ```
 The p-value (0.004551) indicates that there is a significant difference between the two groups. The Confidence Interval [-0.29602981,-0.05415019] indicates that the mean sentiment score of the year after the release of ChatGPT is between 0.05415019 and 0.29602981 higher than the mean sentiment score of the year before the release of ChatGPT.
 Keep in mind that while the difference is statistically significant, it is not practically significant. 
-
-### 3.2.4. VADER lexicon (after outlier removal)
-
-```{r include=TRUE, cache=TRUE}
-# Convert update_date to Date class
-arxiv_filtered$update_date <- as.Date(arxiv_filtered$update_date)
-
-# Define start and end dates
-start_date <- as.Date("2021-11-22")
-end_date <- as.Date("2023-11-22")
-
-# Filter the data to include only two years of interest
-arxiv_filtered <- arxiv_filtered %>%
-  filter(update_date >= start_date & update_date <= end_date)
-
-# Calculate the average sentiment score per day
-arxiv_avg_vader <- aggregate(arxiv_filtered$vader_sen, by=list(arxiv_filtered$update_date), FUN=mean)
-colnames(arxiv_avg_vader) <- c("Date", "Avg_Sentiment")
-
-# Calculate the 7-day rolling mean of sentiment score
-arxiv_avg_vader$Rolling_Mean <- rollmean(arxiv_avg_vader$Avg_Sentiment, k = 30, fill = NA, align = "right")
-
-# Create a plotly line chart of the average sentiment score per day
-p <- plot_ly(arxiv_avg_vader, x = ~Date, y = ~Avg_Sentiment, type = 'scatter', mode = 'lines', name = 'Daily Average_VADER') %>%
-  layout(title = "Average Sentiment Score per Day", 
-         xaxis = list(title = "Date"), 
-         yaxis = list(title = "Average Sentiment Score"))
-
-# Add the 7-day rolling mean to the plot
-p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines', name = '30-day Rolling Mean NRC')
-
-# Add a red vertical line at 30 November 2022
-marker_date <- as.Date("2022-11-30")
-p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line = list(color = 'red'), name = 'ChatGPT Release')
-
-# Display the plot
-p
-```
 
 ## 3.3. Assumptions
 
@@ -1231,10 +1235,10 @@ Clearly, the results of Topic 14, 15, and 16 show that the sentiment score of th
 
 Hence, we confirm that ChatGPT influenced certain networks of AI more positively than the rest. If you closely pay attention to the probable keywords of Topic 14, they are related to 'language' and 'generation', which are highly correlated with the primary concept of ChatGPT. Therefore, it is logical to make an inference that this AI topic benefits from the recent innovation, and researchers in this field express more positive ideas towards the idea.
 
-# 4. Discussion
-Here we summarize the findings and use them to answer the research questions.
+# 4. Conclusion
 
-# 5. Conclusion
+Throughout the study, 
+
 
 SAY SAY
 
