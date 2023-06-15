@@ -383,10 +383,7 @@ plot_ly(scopus_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'lin
   layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
 ```
 
-After having used the syuzhet package to calculate the sentiment score for each abstract, we can kind of see a positive trend starting in 2000. However, because of the low amount of articles in our scopus dataset, a clear trend is hard to see.
-Note that the syuzhet package was not designed for scientific text, but for literature. The `NRC` method could be a better option in our case.
-For now we stick to the syuzhet package because it is computationally efficient and provides results that are almost identical to using the `NRC` method, but we will try different sentiment analysis packages later on.
-
+After having used the syuzhet package to calculate the sentiment score for each abstract, we may point out a positive trend starting in 2000. However, because of the low amount of articles in our scopus dataset, it seems challenging to generalize this trend. Note that the syuzhet package was not designed for scientific text, but for literature. The `NRC` method could be a better option in our case. For now, we stick to the syuzhet package because it is computationally efficient and provides results that are almost identical to using the `NRC` method, but we will try different sentiment analysis packages later on in order to evaluate the differences between the methods.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Order the data by cover_date
@@ -400,7 +397,7 @@ plot_ly(scopus, x = ~cover_date, y = ~rolling_avg, type = 'scatter', mode = 'lin
   layout(title = "Rolling Average Sentiment Score per Cover Date", xaxis = list(title = "Cover Date"), yaxis = list(title = "Rolling Average Sentiment Score")) 
 ```
 
-By using the rolling average, we can see the trend over time instead of the differences per year. We can also stil see this increase in sentiment score starting 2015.
+By using the rolling average, we can see the trend over time instead of the differences per year. We can also see this increase in sentiment score starting 2015.
 
 ```{r warning=FALSE, eval=FALSE, include=TRUE, cache=TRUE}
 for(i in 1:nrow(scopus)){
@@ -501,8 +498,7 @@ plot_ly(arxiv_avg, x = ~Year, y = ~Avg_Sentiment, type = 'scatter', mode = 'line
   layout(title = "Average Sentiment Score per Year", xaxis = list(title = "Year"), yaxis = list(title = "Average Sentiment Score"))
 ```
 
-What we want to know is if there has been a change in sentiment score after the release of ChatGPT. To do this, we focus our analysis on the year before and the year after the release of ChatGPT. Our treshold date is thus 2020-11-22.
-
+Reaffirming our primary research question, our interest is to check if there has been a change in sentiment score after the release of ChatGPT. To include it in our research design, we focus our analysis on the year before and the year after the release of ChatGPT. Thus, our threshold date is set to 2020-11-22.
 
 ```{r eval=TRUE, include=TRUE, cache=TRUE}
 arxiv <- read_csv("data/arxiv_sentiments.csv", col_types = cols(update_date = col_date(format = "%Y-%m-%d")))
@@ -547,7 +543,7 @@ We can see that after the release of ChatGPT there is a slightly increasing tren
 *** We are now left with the following question: is this increase significant? To answer this question we will perform a t-test. ***
 We can also see negative as well as positive spikes in the sentiment score. Let's take a look at these outliers.
 
-## Deeper Analysis
+## 3.2. Deeper Analysis
 
 By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these scored higly positive or negative. 
 Why these were higly positive or negative is not clear. When using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC lexicon has the most matches.
@@ -587,11 +583,10 @@ print(word_sentiment)
 
 ```
 
-### VADER
+### 3.2.1. VADER lexicon
 
-VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media. 
-It is thus not clear if it will work well on research papers. Let's try it out.
-  
+VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media. Considering the characteristics of our data, it is yet unclear if this lexicon performs well on the data. Nonetheless, we proceed the demonstration for correct evaluation.
+
 **Note: computing sentiment scores using the VADER lexicon is very intensive**
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
@@ -604,7 +599,6 @@ for (i in 1:nrow(arxiv)) {
 
 write.csv(arxiv, "arxiv_sentiments.csv", row.names = FALSE)
 ```
-
 
 Let's create a new plot that show the Daily Average Sentiment but using VADER for the sentiment calculation.
 
@@ -692,7 +686,7 @@ get_sentiment_objectivity_score(article_may_13$abstract)
 
 We can also see a fairly Neutral score using SentiWordNet. However this result is nothing without comparing it to the results with other abstracts.
 
-## Outliers Removal
+### 3.2.2. Outliers Removal
 
 Given that we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
 Luckily we only have 6 days over the period of 2 years where this happens so we will just remove these outliers from our dataset.
@@ -709,7 +703,7 @@ arxiv_filtered <- arxiv[!(arxiv$update_date %in% dates_to_remove),]
 
 ```
 
-### NRC
+### 3.2.3. NRC lexicon (after outlier removal)
 
 ```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class
@@ -794,7 +788,7 @@ t.test(before, after, var.equal = FALSE)
 The p-value (0.004551) indicates that there is a significant difference between the two groups. The Confidence Interval [-0.29602981,-0.05415019] indicates that the mean sentiment score of the year after the release of ChatGPT is between 0.05415019 and 0.29602981 higher than the mean sentiment score of the year before the release of ChatGPT.
 Keep in mind that while the difference is statistically significant, it is not practically significant. 
 
-### VADER
+### 3.2.4. VADER lexicon (after outlier removal)
 
 ```{r include=TRUE, cache=TRUE}
 # Convert update_date to Date class
@@ -832,7 +826,7 @@ p <- add_segments(p, x = marker_date, xend = marker_date, y = -1, yend = 1, line
 p
 ```
 
-## Assumptions
+## 3.3. Assumptions
 
 In this research Notebook we assume that abstracts reflect the overall sentiment expressed in the research papers itself. If this assumption holds, our method of analyzing 80.000 abstracts is valid.
 
@@ -854,13 +848,13 @@ print(arxiv_filtered_sampled)
 write.csv(arxiv_filtered_sampled, "arxiv_titles.csv", row.names = FALSE)
 ```
 
-Reading the file containing the texts
+We read the file containing the sample texts.
 
 ```{r}
 arxiv_texts <- read_csv("data/arxiv_text.csv")
 ```
 
-Cleaning the text for each paper
+The same cleaning procedure is taken to the file to remove unnecessary items for sentiment analysis.
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 for(i in 1:nrow(arxiv_texts)){
@@ -883,7 +877,7 @@ for(i in 1:nrow(arxiv_texts)){
 }
 ```
 
-Now we are going to perform the sentiment analysis on the texts
+Now, the texts are correctly pre-processed and hence we perform the sentiment analysis.
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv_texts$nrc_sen <- NA
@@ -1002,13 +996,13 @@ fig
 
 We can see that except for the last research paper, the 'error' is lower than 0.4. This is acceptable in our case.
 
-## Topic Modelling
+## 3.4. Topic Modelling
 
 Moreover, we apply **topic modelling** to uncover abstract topics within this set of articles. Topic modelling enables users to reveal hidden semantic structures in text data. Although the arxiv data broadly touches upon artificial intelligence, the samples can be divided into networks of words that frequently appear in texts, indicating each network represents a certain semantic or topic. For instance, certain samples may focus on image-related AI while other group may deal with NLP-based AI. Further, this unique topic division would help us to conduct separate sentiment analyses, leading to a more clustered interpretation.
 
 Note that the implementation is made based on the tutorial conducted by Martin Schweinberger [here](https://ladal.edu.au/topicmodels.html).
 
-### Loading and Preprocessing the data
+### 3.4.1. Loading and Preprocessing the data
 
 First, we create a corpus from the 'abstract' column of the arxiv file, followed by a number of pre-processing steps on the corpus to clean the text data. The cleaning includes converting the text to lowercase, removing stopwords, punctuation, numbers, and stemming the words. Note that each step is applied sequentially.
 
@@ -1025,7 +1019,7 @@ processedCorpus <- tm_map(processedCorpus, stemDocument, language = "en")
 processedCorpus <- tm_map(processedCorpus, stripWhitespace)
 ```
 
-### Document-Term Matrix (DTM)
+### 3.4.2. Document-Term Matrix (DTM)
 
 To obtain the frequency of words in each article, we compute the DTM using the processed corpus. A minimum frequency is set to 5 and thus terms only with a greater than or equal to this threshold are included in the matrix.
 
@@ -1038,7 +1032,7 @@ dim(DTM)
 ```
 
 
-### Finding the optimal topic numbers
+### 3.4.3. Finding the optimal topic numbers
 
 To find the optimal number of topics, we set a range of numbers from 1 to 20 and select the following two evaluation methods ('CaoJuan2009' and 'Deveaud2014') to assess the quality of each model. Ideally, the optimal topic numbers exhibit low CaoJuan2009 and high Deveaud2014 values. Again, the choice of the methods is motivated the aforementioned tutorial.
 
@@ -1060,7 +1054,7 @@ FindTopicsNumber_plot(result)
 
 The result indicates that the desired number of topics is 20, and hence we proceed the analysis with this number. Now, we are able to build the Latent Dirichlet Allocation (LDA) model, that is trained on the DTM using the Gibbs sampling with 1000 iterations. Note that we do not intend to experiment with other sampling methods and different hyperparameters as it is not the primary focus of the analysis.
 
-### LDA model
+### 3.4.4. LDA model
 
 ```{r include=TRUE, cache=TRUE}
 # number of topics
@@ -1071,7 +1065,7 @@ set.seed(9161)
 topicModel <- LDA(DTM, K, method="Gibbs", control=list(iter = 1000, verbose = 25))
 ```
 
-### Model Checking
+### 3.4.5. Model Checking
 
 The following code provides with important structural features of the LDA topic model.
 
@@ -1092,7 +1086,7 @@ dim(theta)               # nDocs(DTM) distributions over K topics
 rowSums(theta)[1:10]     # rows in theta sum to 1
 ```
 
-### Results
+### 3.4.6. Results
 
 We display the top 10 words for each topic in the model.
 
