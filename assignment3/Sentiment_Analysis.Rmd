@@ -6,7 +6,7 @@ output: html_document
 ---
 # 1. Introduction
 
-Artificial Intelligence (AI) has been widely studied and researched for a long time, and nowadays the AI technology influences human lives in a significant way. Its service is no longer limited to business owners but also any individuals. Many experts have stressed that AI would become a game changer in a short time, leaving the idea that the general opinion of academia and industry favoured the new technology. However, the rise of ChatGPT, a chatbot developed by OpenAI, has significantly shaped the world in a very unexpected and unpredictable way. The power of ChatGPT and its impact is far beyond our imagination. Ironically, due to its potentials, the world figures that it has created negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria. Scammers utilized generative AI technology to create a fake image of a firefighter holding a victim to trick people into donating money.
+Artificial Intelligence (AI) has been widely studied and researched over the years, and nowadays the AI technology influences not only businesses but also individuals. Modern society is now closely entangled with the developed technology. Experts have long emphasized that AI has the potential to be a game changer, and this viewpoint has been widely embraced by academia and industry. However, the emergence of ChatGPT, a chatbot developed by OpenAI, has surprised the world with its power, unleashing unforeseen and unpredictable effects. The value of ChatGPT seems to surpass our imaginations. Tremendous amounts of people, even at this current moment, benefits from its incredible advantages [3]. Ironically, despite its vast potential, ChatGPT has also brought about negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria, where scammers exploited generative AI technology to fabricate a fake image of a firefighter holding a victim to trick people into donating money.
 
 ![](fake.png)
 
@@ -27,16 +27,13 @@ Source: Cade Metz, "The Godfather of A.I.’ Leaves Google and Warns of Danger A
 
 According to the authors, experts tend to hold three different positions regarding technology: antagonists, pragmatists or neutrals, and enthusiastic experts. Antagonists believe that achieving human-level AI is insurmountable, rendering related risk scenarios nonsensical. Pragmatists or neutrals find it challenging to identify the actual challenges in developing human-level AI but recognize short-term risks associated with existing technology. Enthusiastic experts believe that full development is inevitable but can lead to either positive or negative outcomes, with pessimistic enthusiasts framing existential risk scenarios. The study suggests that pessimistic experts can indirectly influence society by amplifying their messages based solely on the conception of counterfactual scenarios.
 
-In conclusion, we are able to formulate the hypothesis that the sentiment of AI has changed over time, and a major event such as the introduction of ChatGPT may likely facilitate the phenomenon. Since the role of experts in AI does seem to contribute to constructing the public opinions, it is an interesting approach to look at the way those influencial experts perceive the AI in recent times as the outcome could be a valuable hint to understand general opinions. Thus, our study aims to answer the following two primary questions.
+In conclusion, we are able to formulate the hypothesis that the sentiment of AI has changed over time, and a major event such as the introduction of ChatGPT may likely facilitate the phenomenon. Since the role of experts in AI does seem to contribute to constructing the public opinions, it is an interesting approach to look at the way those influencial experts perceive the AI in recent times as the outcome could be a valuable hint to understand general opinions. Thus, our study aims to answer the following primary question.
 
-## Research Questions
-1. The sentiment of AI has changed since the launch of ChatGPT
-2. AI experts' ideas influence public opinions
+#### _**The sentiment of AI in academia has changed since the launch of ChatGPT**_
 
-## Research Design
-To answer the formulated questions, we attempt to apply sentiment analysis on the published academic journals. EXPLAIN MORE IN HERE!
+To answer this formulated question, we attempt to apply sentiment analysis on the published academic journals. EXPLAIN MORE IN HERE!
 
-# 3. Data
+# 2. Data
 
 Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the AI experts. To answer, we extract the researchers listed in ["Artificial Intelligence researchers"]([url](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages)) in Wikipedia. After finding those 416 researchers, we utilize Scopus APIs to extract the published papers of the researchers, including the following elements:
 
@@ -370,7 +367,7 @@ plot_ly(arxiv, x = ~year, type = "histogram") %>%
 
 
 
-# 4. Sentiment Analysis
+# 3. Sentiment Analysis
 
 ## Visualization
 
@@ -1246,9 +1243,18 @@ Clearly, the results of Topic 14, 15, and 16 show that the sentiment score of th
 
 Hence, we confirm that ChatGPT influenced certain networks of AI more positively than the rest. If you closely pay attention to the probable keywords of Topic 14, they are related to 'language' and 'generation', which are highly correlated with the primary concept of ChatGPT. Therefore, it is logical to make an inference that this AI topic benefits from the recent innovation, and researchers in this field express more positive ideas towards the idea.
 
-# 5. Discussion
+# 4. Discussion
 Here we summarize the findings and use them to answer the research questions.
 
-# 6. Conclusion
+# 5. Conclusion
 
 SAY SAY
+
+
+## References
+
+1. Leiter, Christoph & Zhang, Ran & Chen, Yanran & Belouadi, Jonas & Larionov, Daniil & Fresen, Vivian & Eger, Steffen. (2023). ChatGPT: A Meta-Analysis after 2.5 Months. 
+2. Neri, Hugo & Cozman, Fabio. (2020). The role of experts in the public perception of risk of artificial intelligence. AI & SOCIETY. 35. 1-11. 10.1007/s00146-019-00924-9. 
+
+3. Twelverays (2023, March 17). Benefits of ChatGPT
+. https://twelverays.agency/blog/benefits-of-chatgpt
