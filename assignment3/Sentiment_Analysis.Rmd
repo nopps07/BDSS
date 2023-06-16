@@ -546,10 +546,13 @@ We can also see negative as well as positive spikes in the sentiment score. Let'
 ## 3.2. Deeper Analysis
 
 By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these scored higly positive or negative. 
-Why these were higly positive or negative is not clear. When using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC lexicon has the most matches.
+This is due to the fact that sometimes only a few words from the abstracts have a match with the lexicon. This causes the overall sentiment score to be very high or low if those words are very positive or negative. 
+
+Choosing the right lexicon is of cucial importance when performing sentiment analysis. For this reason we decided to try out different lexicons and see which one has the most word-matches with our abstracts.
+Eventually the most suitable lexicon for our analysis seemed to be the NRC lexicon. When looking at the example below, the `Bing` and `Afinn` lexicons both only have a match with 2 words and using the `Loughran` lexicon only one word.
+The `NRC` lexicon is the clear winner here wih 17 mathes.
 
 According to ChatGPT, recommended lexicons for analyzing research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
-
 
 ```{r include=TRUE, cache=TRUE}
 # Filter the data to include only the article from May 1, 2022
@@ -565,10 +568,6 @@ article_may_1$sentiment <- get_sentiment(article_may_1$abstract)
 # Display the sentiment score
 print(article_may_1$sentiment)
 ```
-
-Using the Bing and afinn lexicon we only have a match with 2 words, using the loughran lexicon only one word. The NRC (syuzhet) lexicon has more matches.
-
-According to ChatGPT, recommended lexicons for research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
 
 ```{r cache=TRUE, include=TRUE}
 # Tokenize the abstract into individual words
