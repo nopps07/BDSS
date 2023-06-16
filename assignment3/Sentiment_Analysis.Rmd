@@ -399,7 +399,7 @@ plot_ly(scopus, x = ~cover_date, y = ~rolling_avg, type = 'scatter', mode = 'lin
 
 By using the rolling average, we can see the trend over time instead of the differences per year. We can also see this increase in sentiment score starting 2015.
 
-```{r warning=FALSE, eval=FALSE, include=TRUE, cache=TRUE}
+```{r warning=FALSE, eval=TRUE, include=TRUE, cache=TRUE}
 for(i in 1:nrow(scopus)){
   abstract <- scopus$abstract[i]
   # create a text corpus
@@ -467,8 +467,6 @@ p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 16, line
 # Display the plot
 p 
 ```
-
-![](scopus.png){width="682"}
 
 Again, due to the low sample size of Scopus (n = 39), the fluctuation of daily average sentiment seems dynamic and unstable. Therefore, the further analysis focuses only on the arxiv data.
 
