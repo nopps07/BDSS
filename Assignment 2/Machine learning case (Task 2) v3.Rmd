@@ -1,0 +1,728 @@
+---
+title: "Machine learning case: Predicting happiness"
+author: "Valentin Duprez, Gunho Lee, Lennert Vanhaeren"
+date: "5/18/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+The aim of this report is to use (supervised) machine learning approaches to predict the outcome variable happiness ("happy"). The data used in this report are from the European Social Survey (ESS) [1]. This survey is conducted across Europe, with the aim of measuring attitudes, values and behaviour patterns in a range of areas including social and political trust, immigration, health and work.
+
+First, we must clean and prepare the data for analysis. Next, we choose relevant features to include in our models. Then we can train and test different machine learning models. Finally, we evaluate the performance of the models and interpret the results.
+
+```{r}
+# Set working directory
+setwd("C:/Users/lenne/Downloads/ESS10")
+
+# Remove all objects from the current workspace
+rm(list = ls())
+
+# Set seed for reproducibility
+set.seed(17) 
+
+# Loading packages
+library(dplyr) #for use of the pipe
+library(tidyr) #for data wrangling
+library(corrplot) #for correlation plot
+library(ggplot2) #for graphics
+library(rsample) #splitting sample
+library(caret) #machine learning
+library(LiblineaR) #linear predictive models
+library(randomForest) #random forest and decision trees
+library(pROC) #ROC Curves
+```
+
+## 1. Exploratory data analysis, pre-processing and feature selection
+```{r}
+# Load in the data
+ESS <- read.csv("ESS10.csv")
+dim(ESS)
+```
+The dataset contains 33.351 observations and 586 variables. We want to include around 10 relevant features in a model to predict the variable "happy". Before selecting features, let's first explore our target variable more in depth.
+
+```{r}
+# extract target variable (happy)
+target_raw <- ESS %>%
+  select(happy)
+
+# check out the different values for the target variable
+target_values <- target_raw %>% 
+  unique() %>%
+  arrange(happy)
+target_values
+```
+Our target variable is happiness, measured on a scale from 0 to 10 where 0 = extremely unhappy and 10 = extremely happy. We also see the following values:
+
+- 77 = Refusal
+- 88 = Don't know
+- 99 = No answer
+
+These all correspond to missing values, so we recode our target variable accordingly.
+```{r}
+# recode target variable: change 77, 88 and 99 to missing values
+target_recoded <- target_raw %>%
+  mutate(happy = replace(happy, happy %in% c(77, 88, 99), NA))
+```
+Next, we check the relative frequencies to see how many missing values there are.
+```{r}
+# frequency and relative frequency of each value
+target_freq = target_recoded %>% 
+  group_by(happy) %>% 
+  summarise(frequency = n()) %>% 
+  mutate(rel_freq = frequency / sum(frequency))
+print(target_freq, n=Inf)
+```
+Only 0.25% of the observations are missing values, which is a very small percentage. We could handle these missing values by dropping them or using mean, median or mode imputation. However, we don't know if the missing values are extreme cases. For example, it is possible that the ones that refuse to answer are people that are extremely unhappy and afraid to admit this to other people. If this is the case, imputation can introduce bias into the data. For a very small percentage of missing values, dropping them is generally preferred because this is less likely to affect the statistical properties of the dataset and it does not require making potentially incorrect assumptions about the missing data. So, we opt for dropping the missing values. 
+
+```{r}
+# drop the missing values
+target = target_recoded %>% 
+  na.omit()
+nrow(target)
+```
+We still have 33.269 observations left. Now that our target variable is clean, we can take a look at its distribution.
+```{r}
+# Calculate the quartiles and the mean
+q <- quantile(target$happy, c(0.25, 0.5, 0.75))
+print(q)
+mean_happiness <- mean(target$happy)
+print(mean_happiness)
+```
+```{r}
+# Create a boxplot of happiness
+boxplot <- ggplot(target, aes(x = "", y = happy)) +
+  geom_boxplot(fill = "#0072B2", alpha = 0.8) +
+  labs(y = "Happiness (0-10)", x= " ") +
+  ggtitle("Boxplot of Happiness") +
+  theme_minimal() +
+  guides(fill=FALSE) +
+  scale_fill_manual(values = "#0072B2")
+boxplot
+```
+
+It seems that most people have a value between 6 and 8. For our machine learning model, it wouldn't necessarily be the most interesting to predict exactly what score people indicated on a scale from 1 to 10. Not all people will interpret this scale in the same way. It's a lot more informative to split the individuals in a "happy" and "unhappy" group. Our focus then lies on finding out who the unhappy individuals are, as they may require some assistance or intervention to help increase their happiness. To find a good cut-off value for separating the observations in "happy" and "unhappy", we look at the (cumulative) relative frequencies.
+
+```{r}
+# Cumulative relative frequencies
+target_freq2 = target %>% 
+  group_by(happy) %>% 
+  summarise(frequency = n()) %>% 
+  mutate(rel_freq = frequency / sum(frequency),
+         cum_rel_freq = cumsum(rel_freq))
+print(target_freq2, n=Inf)
+```
+We see that 18.7% of the individuals in the dataset have a score of 5 or lower, this seems like a fitting size for a minority group that is of interest to us. The score is 6 or lower for almost 30% of the individuals, which is not that big of a minority anymore. 5 is also the middle value of the possible scores, so it seems fitting to classify those with a score of 5 or lower as "unhappy" (0). The individuals with a score of 6 or more will be classified as "happy" (1). This makes our target variable and classification problem binary, which will make our machine learning models more straightforward and easier to interpret. We will wait to recode our target variable until we have selected our features/predictors, because we will lose some information when binarizing happiness and still want to look at the correlation between the target variable and the predictors.
+
+According to ChatGPT, some factors that could influence a person's happiness are: social support, financial stability, health status, job satisfaction, family relationships, education level, personality traits and cultural background. Looking through the variables in the ESS dataset, these are some candidates to include as predictors in our model (not in any particular order):
+
+- sclmeet = How often you socially meet with friends, relatives or colleagues
+- inprdsc = How many people there are with whom you can discuss intimate and personal matters
+- health = Subjective general health
+- dscrgrp = Member of a group discriminated against in this country
+- feethngr = Feel part of same race or ethnic group as most people in country
+- wrclmch = How worried about climate change
+- gndr = Gender
+- eduyrs = Years of education
+- hinctnta = Household's total net income, all sources
+- netusoft = Internet use, how often
+- ppltrst = Most people can be trusted or you can't be too careful
+- stflife = How satisfied with life as a whole
+- stfgov = How satisfied with the national government
+- livpnt = Parents still alive
+- iphlppl = Important to help people and care for others well-being
+- ipsuces = Important to be successful and that people recognise achievements
+- stfmjob = Job satisfaction
+- agea = Age of respondent
+- rlgblg = Belonging to particular religion or denomination
+
+A more detailed description of the variables can be found at https://ess-search.nsd.no/en/study/172ac431-2a06-41df-9dab-c1fd8f3877e7. 
+
+```{r}
+# extract some features from the ESS dataset that could help predict happiness
+predictors <- c("sclmeet", "inprdsc", "health", "dscrgrp", "feethngr", "wrclmch", "gndr", "eduyrs", "netusoft", 
+                "ppltrst", "agea", "stflife", "stfgov", "livpnt", "iphlppl", "ipsuces", "rlgblg")
+
+```
+
+Just like before with happiness, there are different types of missing values. We have:
+
+- 6 or 66 = Not applicable
+- 7 or 77 = Refusal
+- 8 or 88 = Don't know
+- 9 or 99 = No answer
+
+We recode the predictors such that these values are replaced with missing values (NA). Of course, only look at the observations we kept, i.e. the rows in the variable "target".
+
+```{r}
+extracted_features <- ESS %>%
+  select(happy, all_of(predictors), "hinctnta", "stfmjob") %>%
+  slice(which(rownames(ESS) %in% rownames(target))) %>%
+  mutate(
+    sclmeet = replace(sclmeet, sclmeet %in% c(77, 88, 99), NA),
+    inprdsc = replace(inprdsc, inprdsc %in% c(77, 88, 99), NA),
+    health = replace(health, health %in% c(7, 8, 9), NA),
+    dscrgrp = replace(dscrgrp, dscrgrp %in% c(7, 8, 9), NA),
+    feethngr = replace(feethngr, feethngr %in% c(7, 8, 9), NA),
+    wrclmch = replace(wrclmch, wrclmch %in% c(6, 7, 8, 9), NA),
+    gndr = replace(gndr, gndr == 9, NA),
+    eduyrs = replace(eduyrs, eduyrs %in% c(77, 88, 99), NA),
+    hinctnta = replace(hinctnta, hinctnta %in% c(77, 88, 99), NA),
+    netusoft = replace(netusoft, netusoft %in% c(7, 8, 9), NA),
+    ppltrst = replace(ppltrst, ppltrst %in% c(77, 88, 99), NA),
+    agea = replace(agea, agea == 999, NA),
+    stflife = replace(stflife, stflife %in% c(77, 88, 99), NA),
+    stfgov = replace(stfgov, stfgov %in% c(77, 88, 99), NA),
+    livpnt = replace(livpnt, livpnt %in% c(7, 8, 9), NA),
+    iphlppl = replace(iphlppl, iphlppl %in% c(7, 8, 9), NA),
+    ipsuces = replace(ipsuces, ipsuces %in% c(7, 8, 9), NA),
+    stfmjob = replace(stfmjob, stfmjob %in% c(66, 77, 88, 99), NA),
+    rlgblg = replace(rlgblg, rlgblg %in% c(7, 8, 9), NA)
+  ) 
+```
+
+It is important check if there are variables with a large amount of missing values because this might bias the results a lot later on.
+```{r}
+# calculate % of NAs in each column
+na_percentages <- colMeans(is.na(extracted_features)) * 100
+
+# rank from high to low
+ranked_indices <- order(-na_percentages)
+ranked_names <- names(na_percentages)[ranked_indices]
+ranked_percentages <- na_percentages[ranked_indices]
+na_ordered <- data.frame(percentage = ranked_percentages)
+na_ordered
+```
+
+The variables "stfmjob" (job satisfaction) and "hinctnta" (household income) have a substantial amount of missing values, 45% and 22% respectively. For all the other predictors, the amount of missing values is smaller than 5%. According to ChatGPT, if the percentage of missing values is less than 5% to 10%, it is safe to drop them. So for all predictors except job satisfaction and household income, we will drop the missing values. 
+
+For "stfmjob" and "hinctnta", imputation is a better solution. However, imputation assumes that missing values are missing at random (MAR), which means that the probability of a value being missing is not related to the value itself. In the case of income, however, missingness might be related to the value. People that earn a lot more or less than average, will be more inclined to not answer this question. Therefore, the missing values correspond to the more 'extreme' individuals, and imputation will bias the data. So we decide to not include the variable "hinctnta" in our models.
+
+```{r}
+job_sat = ESS %>%
+  select(stfmjob) %>%
+  group_by(stfmjob) %>% 
+  summarise(frequency = n()) %>% 
+  mutate(rel_freq = frequency / sum(frequency))
+print(job_sat, n=Inf)
+```
+For job satisfaction, 44% of the individuals indicated 'Not Applicable' (66). These will be individuals that are unemployed, and they are very diverse: children and students who are not yet working, retired people, people struggling to find a job, ... Using imputation would in this case also introduce bias, so for simplicity we won't include the variable "jbstfm" in our models either.
+
+```{r}
+# drop household income and job satisfaction, next drop the missing values
+extracted_features2 <- extracted_features %>%
+  select(-c("hinctnta", "stfmjob")) %>%
+  drop_na()
+head(extracted_features2)
+```
+Now that we have dropped the missing values, let's check if we didn't lose too much observations.
+```{r}
+# How much % of the original observations are left after dropping missing values?
+nrow(extracted_features2)/nrow(ESS)
+```
+Around 88% of the total observations of the original dataset are left. Hopefully we can get this to 90% after selecting the final predictors we will include in our model. We use correlation analysis o check which predictors are best to include in our model. In other words, we calculate the correlation between each predictor and the target varible to see which predictors are most strongly related to the target variable.
+
+```{r}
+for (predictor in predictors) {
+  correlation <- cor(extracted_features2$happy, extracted_features2[[predictor]])
+  correlation <- round(correlation, 2)
+  correlation <- format(correlation, nsmall = 2)
+  cat("Correlation between happiness and", predictor,":", correlation, "\n")
+}
+```
+For some predictors, the correlation with the target variable is very close to 0. Therefore, we will not include these features in our model:
+
+- dscrgrp = Member of a group discriminated against in this country
+- feethngr = Feel part of same race or ethnic group as most people in country
+- wrclmch = How worried about climate change
+- gndr = Gender
+- ipsuces = Important to be successful and that people recognise achievements
+- rlgblg = Belonging to particular religion or denomination
+
+We also have to make sure that our predictors are independent, so they can't be highly correlated with each other. There are several reasons why having correlated predictors in a model can be problematic, we asked ChatGPT to list them:
+
+- *Overfitting:* When two or more predictors are highly correlated, they can essentially be duplicating each other's predictive power. This can lead to overfitting, where the model performs well on the training data but poorly on new, unseen data.
+- *Model interpretation:* When predictors are highly correlated, it can be difficult to interpret the coefficients of the model. For example, if two predictors are strongly correlated, it may be difficult to tell which one is having a stronger effect on the target variable.
+- *Instability:* Highly correlated predictors can lead to instability in the model, which means that small changes in the data can lead to large changes in the model's predictions.
+
+To avoid these issues, it is generally recommended to exclude highly correlated predictors from the model. One common approach is to use a correlation matrix to identify pairs of predictors that are strongly correlated, and then choose only one of the correlated predictors to include in the model (based on some criterion such as predictive power or ease of interpretation).
+
+```{r}
+corrplot.mixed(cor(extracted_features2), tl.pos = "lt", number.cex = 0.45)
+```
+
+Some important things to note:
+
+#### I. Age ("agea") and whether someone's parents are alive ("livpnt") are highly correlated with each other, with a correlation of 0.76.
+
+As explained above, this is problematic. We should drop one of these variables or combine them. Dimensionality reduction such as Principal Components Analysis (PCA) involves transforming the original variables into a new set of orthogonal variables, known as principal components, which are linear combinations of the original predictors. However, these new variables are often difficult to interpret because they are a combination of multiple variables. When using PCA, the contribution of each original variable to the principal components is often unclear, making it harder to understand the relationship between the original variables and the target variable. But since interpretability is our primary goal - we want to find out what contributes to people's unhappiness (in Europe) - we decide to not use PCA.
+
+Both predictors have about the same correlation with the target variable, so it is not straightforward which one to drop. However, we think that "livpnt" is more informative because it can indirectly capture (un)happiness due to age, as well as unhappiness among young people who lost their parents, as well as happiness among old people whose parents are still alive. So we decide to not include "agea" in our model and to include "livpnt" in our model. 
+
+#### II. Internet use ("netusoft") has a moderate correlation (absolute value of around 0.4-0.5) with multiple predictors: 
+
+- -0.40 with health ("health")
+- +0.41 with years of education ("eduyrs")
+- -0.47 with parents alive ("livpnt")
+- -0.53 with age ("agea"), but we already decided to drop this predictor
+ 
+For reasons mentioned above, we will not include internet use ("netusoft") in our model.
+
+#### III. Life satisfaction ("stflife") has a high correlation of 0.69 with the target variable ("happy").
+
+We ask ChatGPT: "Is it a bad thing if one of my predictors is highly correlated (0.69) with my target variable?" and get the following response:
+
+"No, it is not necessarily a bad thing if one of your predictors is highly correlated with your target variable. In fact, a high correlation between a predictor and target variable can indicate a strong relationship between the two, which can potentially improve the accuracy of your machine learning model.
+However, having a predictor that is too highly correlated with the target variable (e.g., a correlation coefficient of 0.9 or higher) can lead to some potential issues such as overfitting. When a predictor is highly correlated with the target variable, the model may rely too heavily on this variable to make predictions, leading to overfitting. Therefore, it's important to carefully evaluate the correlation between your predictors and target variable, and consider the potential risks of overfitting."
+
+We have fitted all the models both with and without life satisfaction and saw that the specificity dropped a lot when excluding it. This metric is most important to us (more about this later), so we decide to include "jbstfm" in our model. 
+
+We repeat the previous steps with the features that we decide to include in our model.
+```{r}
+# Keeping the features we didn't decide to drop
+important_predictors <- c("sclmeet", "inprdsc", "health", "eduyrs", "ppltrst", "stflife", "stfgov", "iphlppl", "livpnt")
+dataframe <- ESS %>%
+  select(happy, all_of(important_predictors)) %>%
+  slice(which(rownames(ESS) %in% rownames(target))) %>%
+  mutate(
+    sclmeet = replace(sclmeet, sclmeet %in% c(77, 88, 99), NA),
+    inprdsc = replace(inprdsc, inprdsc %in% c(77, 88, 99), NA),
+    health = replace(health, health %in% c(7, 8, 9), NA),
+    eduyrs = replace(eduyrs, eduyrs %in% c(77, 88, 99), NA),
+    ppltrst = replace(ppltrst, ppltrst %in% c(77, 88, 99), NA),
+    stflife = replace(stflife, stflife %in% c(77, 88, 99), NA),
+    stfgov = replace(stfgov, stfgov %in% c(77, 88, 99), NA), 
+    iphlppl = replace(iphlppl, iphlppl %in% c(7, 8, 9), NA),
+    livpnt = replace(livpnt, livpnt %in% c(7, 8, 9), NA)
+  ) %>%
+  drop_na() 
+nrow(dataframe)/nrow(ESS) 
+```
+Around 92% of the original observations in the ESS dataset are kept.
+
+
+```{r}
+# Redefine the predictors: replace closepnt and livpnt with their combined variable pnt
+#important_predictors <- c("sclmeet", "inprdsc", "health", "eduyrs", "netusoft", 
+#                          "ppltrst", "stflife", "stfgov", "iphlppl", "pnt")
+for (predictor in important_predictors) {
+  correlation <- cor(dataframe$happy, dataframe[[predictor]])
+  correlation <- round(correlation, 2)
+  correlation <- format(correlation, nsmall = 2)
+  cat("Correlation between happiness and", predictor,":", correlation, "\n")
+}
+corrplot.mixed(cor(dataframe), tl.pos = "lt", number.cex = 0.65)
+```
+
+This already looks a lot better. Not that we can already expect that life satisfaction will be our most important predictor because it has such a high correlation with the target variable. 
+
+The last thing we still have to do now, is recode our target variable into 2 categories "happy" (the positive class) and "unhappy" (the negative class). We denote the happy individuals with a 1 and the unhappy individuals with a 0, according to the cut-off value as discussed before.
+```{r}
+# Recode the target variable into 2 categories
+dataframe$happy_binary <- ifelse(dataframe$happy >= 6, 1, 0)
+```
+
+For our recoded response, we look one last time at the correlation with the predictors. It is expected that the correlaton should not significantly change if the cut-off is acceptable. 
+
+
+```{r}
+for (predictor in important_predictors) {
+  correlation <- cor(dataframe$happy_binary, dataframe[[predictor]])
+  correlation <- round(correlation, 2)
+  correlation <- format(correlation, nsmall = 2)
+  cat("Correlation between happiness and", predictor,":", correlation, "\n")
+}
+corrplot.mixed(cor(dataframe), tl.pos = "lt", number.cex = 0.65)
+```
+
+All correlations are still more or less the same. The only one that changed quite a lot is the correlation between job satisfaction and happiness, which dropped from about 0.7 to 0.54. A next step could be to dichotimize the target variable in three categories instead of two. However, we will stick with the binary response in order to increase interpretability. 
+
+In order to not get any errors while fitting the models, we use different values than 1 and 0 to indicate our classes. We name them "happy" and "unhappy" instead. 
+
+```{r}
+# Recode the target variable into 2 categories
+dataframe$happy_binary <- ifelse(dataframe$happy >= 6, "happy", "unhappy")
+dataframe$happy_binary <- as.factor(dataframe$happy_binary)
+
+# Drop the column happy, which takes on values from 0 to 10
+dataframe <- dataframe %>%
+  select(-happy)
+```
+
+Now the final dataframe looks as follows.
+```{r}
+head(dataframe)
+dim(dataframe)
+```
+
+## 2. Model selection, training and validation
+Now that we selected the final predictors to include in our model, we can start building our model. We split the dataframe in a training and test set:
+
+```{r}
+# 80% of the observations are training data, 20% test data
+(split = initial_split(dataframe, prop = .80))
+
+traindata = training(split)
+dim(traindata)
+
+testdata = testing(split)
+dim(testdata)
+
+X_train = select(traindata, all_of(important_predictors))
+y_train = traindata$happy_binary
+
+X_test = select(testdata, all_of(important_predictors))
+y_test = testdata$happy_binary 
+```
+
+We will use the following supervised machine learning methods to build a model for predicting happiness with our predictor variables:
+
+- **Naive Bayes (NB)**
+- **Logistic Regression (LR)** 
+- **Classification and Regression Trees (CART)** 
+- **K Nearest Neighbors (KNN)** 
+- **Linear Discriminant Analysis (LDA)** 
+- **Random Forests (RF)** 
+
+To evaluate the performance of the different methods, there exist multiple metrics. Some that we will look at are:
+
+- *Accuracy*, which is defined as the proportion of correctly classified observations. While it provides a simple and intuitive measure of the model's overall performance, it can be misleading in our situation because the classes are imbalanced. This means that the happy class has many more observations than the unhappy class (which made up only about 18% of all observations, see also section 1). For example, a classifier that always predicts an individual to be happy will achieve an accuracy of about 82%, even though it is not useful in practice. Therefore, we will not focus so much on this metric.
+- *ROC*, which stands for Receiver Operating Characteristic, is a graphical representation of the performance of a binary classifier. It plots the true positive rate (sensitivity) against the false positive rate (1 - specificity) at different classification thresholds. The ROC curve provides a visual depiction of the trade-off between sensitivity and specificity for different threshold settings.
+- *AUC*, or Area Under the ROC Curve, is a metric that measures the ability of a binary classifier to distinguish between the two classes. It ranges from 0 to 1. A higher AUC indicates better classifier performance, with a value of 1 representing a perfect classifier and 0.5 indicating a random classifier. It is particularly useful in imbalanced datasets where one class is much more frequent than the other, which is the case here. 
+- *Confusion matrix:* a table that summarizes the performance of a classification model by presenting the counts of true positive, true negative, false positive, and false negative predictions. It is a 2x2 matrix with the predicted and actual class labels along the rows and columns. 
+- *Sensitivity*, also known as the true positive rate, measures the proportion of actual happy individuals correctly identified as happy by the classifier.
+- ***Specificity***, also known as the true negative rate, represents the proportion of actual unhappy individuals correctly identified as unhappy by the classifier. Since we are mainly interested in correctly identifying the unhappy individuals, as we have already explained before, the specificity is most of interest to us and we aim to maximize it. 
+
+To modify your classifier to maximize specificity, you need to adjust the decision threshold used to classify instances. By default, most classifiers have a decision threshold of 0.5, meaning that if the predicted probability of an instance belonging to the positive class (happy) is greater than 0.5, it is classified as positive (happy), otherwise, it is classified as negative (unhappy).
+
+To maximize specificity, you need to adjust the *decision threshold*. This means that you will only classify an instance as positive (happy) if the predicted probability of belonging to the positive (happy) class is greater than the new threshold. By increasing the threshold, you will reduce the number of false positives (i.e., instances that are classified as happy but are actually unhappy) at the cost of potentially increasing the number of false negatives (i.e., instances that are classified as unhappy but are actually happy).
+
+However, we could always get the specificity to 1 by just classifying all individuals as negative. Of course, this isn't useful. So instead of just maximizing the specificity, we will maximize the sum of specificity and sensitivity. The threshold corresponding to this is called the so-called optimal decision threshold. To find it, we plot the ROC curve and identify the point closest to the top-left corner of the plot. This point represents the best trade-off between correctly identifying positive instances (happy individuals) and correctly identifying negative instances (unhappy individuals).
+
+The function below does the following for a given model fitted on the training data (you also have to specifcy the test data):
+
+- plots the ROC curve 
+- calculates: 
+  - the AUC
+  - the optimal threshold
+  - the confusion matrix (based on the test data and the predictions according to the optimal threshold)
+  
+```{r}
+# Function to calculate ROC curve, optimal threshold and confusion matrix
+# possibility to give more weight to sensitivity or specificity with A and B (instead of just maximizing their sum)
+calc_metrics <- function(fit, X_test, y_test, A = 1, B = 1) {
+  # Recode y_test to 1 for "happy" and 0 for "unhappy"
+  y_test_recoded <- ifelse(y_test == "happy", 1, 0)
+
+  # Obtain predicted probabilities for test data
+  y_pred_prob <- predict(fit, newdata = X_test, type = "prob")
+  
+  # ROC curve + treshold that maximizes sum of sensitivity and specificity + AUC
+  roc_data = roc(response = y_test_recoded, predictor = y_pred_prob$happy,  
+                 plot = T, print.auc=T, print.thres="best", main="ROC Curve")
+  
+  # Calculate optimal threshold (possibility to put more weight on specificity or sensitivity)
+  optimal_th = roc_data$threshold[which.max(A*roc_data$sensitivities + B*roc_data$specificities)] 
+  
+  # Calculate AUC
+  auc_val <- roc_data$auc
+  
+  # New predictions according to optimal threshold
+  pred_optimal = ifelse(y_pred_prob$happy > optimal_th, "happy", "unhappy")
+  pred_optimal = as.factor(pred_optimal)
+  
+  # Confusion matrix
+  conf_mat <- confusionMatrix(pred_optimal, y_test, positive = "happy")
+  
+  # Return list with metrics
+  metrics <- list(optimal_th = optimal_th, conf_mat = conf_mat, auc = auc_val)
+  return(metrics)
+}
+```
+
+We will include 10-fold cross-validation when fitting our models. In the words of ChatGPT: "Cross-validation is a technique used to assess the performance of a model on unseen data by partitioning the available dataset into multiple subsets (here: 10) and iteratively training and evaluating the model. Its main benefits are that it provides more reliable estimates of the model's performance and helps to evaluate the model's generalization ability. By using cross-validation, we can make more informed decisions about model selection while reducing the risk of overfitting."
+
+```{r}
+# Including 10-fold cross-validation 
+control = trainControl(method="cv", number=10, classProbs = TRUE, summaryFunction = twoClassSummary)
+```
+
+For all methods, we will center and scale all the predictors. Some of them range from 1-5, some from 0-10, others can take on multiple values, ... This can lead to variable magnitude bias: those with larger scales can dominate the model's learning process and have a disproportionate impact on the results. Standardizing our variables ensures that all veriables contribute equally to the model by putting them on a similar scale. 
+
+### 2.1 Naive Bayes
+Naive Bayes is a probabilistic classifier that assumes independence among predictor variables. In the context of predicting happiness, Naive Bayes would estimate the probability of a person being happy or unhappy based on the values of the (nine) predictor variables. It calculates the likelihood of each class given the predictor values using Bayes' theorem and selects the class with the highest probability as the predicted happiness level.
+
+```{r NB}
+# Naive Bayes (NB)
+fit.NB = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = "naive_bayes", trControl = control, metric = "ROC")
+y_pred_NB = predict(fit.NB, newdata = X_test)
+print(confusionMatrix(y_pred_NB, y_test))
+metrics.NB = calc_metrics(fit.NB, X_test, y_test)
+metrics.NB
+```
+
+Fitting the model with the default threshold of 0.5, NB obtains a specificity of only 29.9%. Using the optimal threshold of 0.979 for this classifier, the specificity increases to 81.8%. The accuracy only drops 5% from about 85% to ca. 80% when changing the threshold, and as explained before this is a trade-off we are happy to make to increase the specificity, the metric most of interest to us. 
+
+
+### 2.2 Logistic Regression
+Logistic regression is a statistical method used for binary classification problems. In this context, logistic regression would model the relationship between the (nine) predictor variables and the binary happiness outcome (happy or unhappy). It estimates the probabilities of being happy or unhappy based on the predictor variables and fits a logistic function to classify observations into one of the two classes.
+```{r lr}
+# Logistic regression (LR)
+fit.lr = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = 'glm', family = 'binomial', trControl = control, metric = "ROC")
+y_pred_lr = predict(fit.lr, newdata = X_test)
+print(confusionMatrix(y_pred_lr, y_test))
+metrics.lr = calc_metrics(fit.lr, X_test, y_test)
+metrics.lr
+```
+
+Fitting the model with the default threshold of 0.5, logistic regression obtains a specificity of only 46.5%. Using the optimal threshold of 0.806 for this classifier, the specificity increases to 81.4%. The accuracy only drops 4% from about 87% to ca. 83% when changing the threshold, so also this model fits our goal a lot better with the optimal decision threshold. 
+
+
+### 2.3 Classification and Regression Trees
+CART is a decision tree-based method for classification and regression tasks. In the context of predicting happiness, we will build a tree-based model using the (nine) predictor variables. The tree is constructed by recursively splitting the predictor variables based on certain criteria, aiming to minimize impurity or maximize information gain. It would then classify new observations by traversing the decision tree based on their predictor values.
+```{r cart}
+# Classification and Regression Trees (CART)
+fit.cart = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = 'rpart', trControl = control, metric = "ROC")
+y_pred_cart = predict(fit.cart, newdata = X_test)
+print(confusionMatrix(y_pred_cart, y_test))
+metrics.cart = calc_metrics(fit.cart, X_test, y_test)
+metrics.cart
+```
+
+Fitting the model with the default threshold of 0.5, CART obtains a specificity of 61.3%. Using the optimal threshold of 0.755 for this classifier, the specificity increases to 72.6%. Note that this model obtains a higher specificity than the previous two classifiers with the default threshold. For the optimal threshold, however, this model performs the worst (lower specificity). Nonetheless, the accuracy is still 86% and only dropped 1% after changing the decision threshold. 
+
+### 2.4 K-nearest neighbors
+KNN is a non-parametric method that classifies new observations based on the majority vote of their nearest neighbors in the predictor space. In this context, KNN would calculate the distances between the predictor values of the new observation and the existing observations. It would then identify the k nearest observations and assign the majority class among them as the predicted happiness level.
+```{r knn}
+# K-nearest neighbors (KNN)
+fit.knn = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = 'knn', trControl = control, metric = "ROC")
+y_pred_knn = predict(fit.knn, newdata = X_test)
+print(confusionMatrix(y_pred_knn, y_test))
+metrics.knn = calc_metrics(fit.knn, X_test, y_test)
+metrics.knn
+```
+
+For KNN, the specificity is only 42.8% with the default threshold of 0.5, but increases to 80.3% with the optimal decision thresshold of 0.809. The accuracy drops 7%, to ~78%, which is still sufficiently high. 
+
+### 2.5 Linear Discriminant Analysis
+LDA is a statistical method that aims to find a linear combination of predictors to discriminate between different classes. In the context of predicting happiness, LDA would create a linear decision boundary in the predictor space based on the (nine) predictor variables. It estimates the parameters that maximize the separation between happy and unhappy classes and assigns new observations to the class that is more likely based on their position relative to the decision boundary.
+```{r lda}
+# Linear Discriminant Analysis (LDA)
+fit.lda = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = 'lda', trControl = control, metric = "ROC")
+y_pred_lda = predict(fit.lda, newdata = X_test)
+print(confusionMatrix(y_pred_lda, y_test))
+metrics.lda = calc_metrics(fit.lda, X_test, y_test)
+metrics.lda
+```
+
+For LDA, the specificity is only 50.2% with the default decision threshold. Using the optimal threshold of 0.846, we obtain a specificity of 83.4! This is the highest value so far. The accuracy is still 81.6%, so we don't even have to trade off that much accuracy. 
+
+
+### 2.6 Random Forests
+Random forests is an ensemble learning method that combines multiple decision trees to make predictions. We create a collection of decision trees using the (nine) predictor variables. Each tree is trained on a random subset of the data, and the final prediction is made by aggregating the predictions of individual trees. Random forests provide robustness against overfitting and tend to yield accurate predictions in various contexts.
+```{r rf}
+# Random Forest (RF)
+fit.rf = train(x = X_train, y = y_train, preProcess = c("center", "scale"), method = 'rf', trControl = control)
+y_pred_rf = predict(fit.rf, newdata = X_test)
+print(confusionMatrix(y_pred_rf, y_test))
+metrics.rf = calc_metrics(fit.rf, X_test, y_test)
+metrics.rf
+```
+
+Lastly, random forests has a specificity of 55.8% using the default threshold and 78.3% using the optimal threshold of 0.787. The classifier is still very accurate after changing the threshold with an accuracy of 83.5%. 
+
+## 3. Model comparison
+
+Now that we have fitted all the models and looked for the optimal thresholds to obtain a high specificity, we can compare the performance of the different models. We will choose a model that we think suits our goal best, which is predicting happiness with a focus on correctly classifying the unhappy individuals. In other words, we will look at which model has the highest specificity. On the other hand, we also want a model that is relatively easy to interpret. 
+
+We gather all the results together.
+
+```{r}
+models <- list(NB=fit.NB, LR=fit.lr, CART=fit.cart, KNN=fit.knn, LDA=fit.lda, RF=fit.rf)
+```
+
+```{r}
+# get the specificity, sensitivity and accuracy from the confusion matrix for the optimal tresholds
+spec_acc <- function(confmat) {
+  tp <- confmat[1,1]
+  fp <- confmat[1,2] #predicted class is along the rows (!)
+  fn <- confmat[2,1] #real values along the columns (!)
+  tn <- confmat[2,2]
+  
+  specificity <- tn / (tn + fp)
+  sensitivity <- tp / (tp + fn)
+  accuracy <- (tp + tn) / (tp + tn + fp + fn)
+  
+  return(list(specificity = specificity, sensitivity = sensitivity, accuracy = accuracy))
+}
+# get the metrics for each classifier (using optimal threshold!)
+NB = spec_acc(metrics.NB$conf_mat$table)
+LR = spec_acc(metrics.lr$conf_mat$table)
+CART = spec_acc(metrics.cart$conf_mat$table)
+KNN = spec_acc(metrics.knn$conf_mat$table)
+LDA = spec_acc(metrics.lda$conf_mat$table)
+RF = spec_acc(metrics.rf$conf_mat$table)
+```
+
+```{r results}
+# put all the results in a dataframe
+results.df <- data.frame("Classifier" = c("NB", "LR", "CART", "KNN", "LDA", "RF"),
+                         "Specificity" = c(NB$specificity, LR$specificity, CART$specificity, 
+                                           KNN$specificity, LDA$specificity, RF$specificity),
+                         "Sensitivity" = c(NB$sensitivity, LR$sensitivity, CART$sensitivity, 
+                                           KNN$sensitivity, LDA$sensitivity, RF$sensitivity),
+                         "AUC" = c(metrics.NB$auc, metrics.lr$auc, metrics.cart$auc, 
+                                   metrics.knn$auc, metrics.lda$auc, metrics.rf$auc),
+                         "Optimal_Threshold" = c(metrics.NB$optimal_th, metrics.lr$optimal_th, metrics.cart$optimal_th, 
+                                                 metrics.knn$optimal_th, metrics.lda$optimal_th, metrics.rf$optimal_th),
+                         "Accuracy" = c(NB$accuracy, LR$accuracy, CART$accuracy, KNN$accuracy, LDA$accuracy, RF$accuracy))
+results.df <- results.df %>% arrange(desc(Specificity))
+results.df
+```
+
+```{r}
+ggplot(results.df, aes(x = Classifier, y = Specificity)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.3f", Specificity)), vjust = -0.5, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Specificity for each classifier when using its optimal threshold", x = "Classifier", y = "Specificity")
+
+```
+
+All models except for CART have a specificity of around 80% when their optimal threshold is used. The highest specificity is obtained for LDA (83.4%), followed by Naive Bayes (81.8%) and logistic regression (81.4%). CART performs the worst, with a specificity of 72.6%. 
+
+```{r}
+ggplot(results.df, aes(x = Classifier, y = Sensitivity)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.3f", Sensitivity)), vjust = -0.5, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Sensitivity for each classifier when using its optimal threshold", x = "Classifier", y = "Sensitivity")
+
+```
+
+For the sensitivity, on the other hand, CART performs best with 89%. But we are more interested in specificity, which is the lowest for CART. Most models have sensitivities close to 80%, with a slightly higher value for RF and slightly lower value for KNN.
+
+```{r}
+ggplot(results.df, aes(x = Classifier, y = AUC)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.3f", AUC)), vjust = -0.5, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Area Under the ROC Curve (AUC) for each classifier", x = "Classifier", y = "AUC")
+```
+
+The AUC is highest for LDA and logistic regression, and lowest for CART. Most models have an AUC of around 0.88, with CART and KNN performing a little worse.
+
+```{r}
+ggplot(results.df, aes(x = Classifier, y = Optimal_Threshold)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.3f", Optimal_Threshold)), vjust = -0.40, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Optimal threshold for each classifier", x = "Classifier", y = "Optimal threshold")
+```
+
+Notice that the optimal threshold is around 80% for most models, a bit lower for CART and a bit higher for LDA. For NB however, it is equal to roughly 98%! This means that the sum of specificity and sensitivity is maximal if we only classify individuals as happy if their predicted probability of being happy is 98% or higher. This is a very conservative threshold compared to the other models.
+
+```{r}
+ggplot(results.df, aes(x = Classifier, y = Accuracy)) +
+  geom_bar(stat = "identity", fill = "steelblue", alpha = 0.8) +
+  geom_text(aes(label = sprintf("%.3f", Accuracy)), vjust = -0.5, size = 3.5) +
+  scale_y_continuous(limits = c(0, 1)) +
+  labs(title = "Accuracy for each classifier when using its optimal threshold", x = "Classifier", y = "Accuracy")
+
+```
+
+As mentioned before, accuracy is not a good metric to evaluate the performance of our models since our data is unbalanced. However, a sufficiently high accuracy is of course required because we don't want to make too many mistakes. The accuracy for CART is the highest with 86%, and the accuracy of KNN is the lowest with 78.4%. However, all methods have an accuracy of about 80%, which is sufficiently high. 
+
+## 4. Interpretation and conclusions
+
+### Choosing a final model
+
+The priority for us is mainly obtaining a high specificity, while maintaining a reasonably high accuracy. We obtain the highest specificities for LDA, logistic regression and NB. However, the optimal threshold for NB is extremely high, making it too conservative in this instance. The AUC is the highest for LDA and LR, both having the exact same values (0.886). As we also strive for an easily interpretable model, we conclude that the **logistic regression model** meets our needs in the best way. In addition to that, this model is also very efficient in terms of computation time.      
+
+Let us now take a deeper look into the results of the LR model.
+
+### Feature importance
+
+Changing the threshold for classification for our logistic regression model does not influence the importance of the features, their estimated coefficients or their interpretation. So we can calculate the variable importance based on model fitted with a threshold of 0.5, fit.lr (the second model in the models vector).
+
+```{r}
+importance <- varImp(models[[2]])
+importance_df <- as.data.frame(importance$importance)
+importance_df$Feature <- rownames(importance_df)
+importance_df$Label <- importance_df$Overall
+ggplot(importance_df, aes(x = reorder(Feature, Overall), y = Overall, fill = Overall)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = sprintf("%.1f", Label)), vjust = 0.5, hjust = -0.15, size = 3.5) +
+  coord_flip() +
+  scale_fill_gradient(low = "steelblue", high = "steelblue", limits = c(0, max(importance_df$Overall))) +
+  guides(fill = FALSE) +
+  xlab("Feature Name") +
+  ylab("Importance") +
+  ggtitle("Feature Importance")
+```
+
+Based on this horizontal bar chart it seems that the individual's satisfaction with life as a whole is the most critical factor for determining whether a person is happy or not. Four times less 'important' but still having a lot of predictive power, the subjective general health also plays a significant role, suggesting that individuals who perceive themselves as healthier are more likely to be happy.
+
+Social interaction, as measured by how often one meets with friends, relatives, or colleagues, and satisfaction with the national government, but also having someone to discuss intimate and personal matters with each have a moderate influence on happiness. This suggests that both social and political factors contribute to an individual's happiness.
+
+Trust in people and the importance of helping others have lower importance, indicating that they play a smaller, yet not insignificant, role in predicting happiness.
+
+Finally, someone's years of education and whether their parents are still alive have the lowest importance scores.
+
+In summary, factors related to personal satisfaction (with life and health) and social interaction appear to be the most influential in predicting happiness, while factors related to education and parental status seem to be less influential according to our logistic regression model.
+
+### Interpretation of the final model
+
+```{r}
+summary(fit.lr)
+```
+Looking at the output of the logistic regression model, we see that all features are significant except for 'livpnt', whether someone's parents are alive or not. Note that the REFERENCE category is the positive class "happy", because of the way the train function of the caret package works! This can be confusing which is why we emphasize this. So, we are modelling the probability of being "unhappy"!
+
+The magnitude of the coefficient indicates the strength of the relationship between the feature and the outcome. A larger coefficient indicates a stronger association between the feature and the likelihood of being "unhappy" (or away from being "happy"). The magnitudes of the coefficients correspond with the variable importance bar chart: the magnitude of the coefficient associated with life satisfaction is the highest. Then the one for health, and so on...
+
+A positive coefficient suggests that as the corresponding feature increases by one unit (note that we have standardized the features to fit the model), the log-odds of the outcome being in the "unhappy" category (versus the reference category "happy") increase. It indicates a positive association between that feature and the likelihood of being "unhappy". A negative coefficient indicates the exact opposite: a negative association between the feature and the likelihood of being "unhappy". 
+
+- 'sclmeet' has a negative coefficient, meaning that socially meeting other people more often decreases the probability of being unhappy (increases the probability of being happy).
+- 'inprdsc' has a negative coefficient, meaning that having more people with whom you can discuss personal matters decreases the probability of being unhappy (increases the probability of being happy).
+- 'health' has a positive coefficient, meaning that the worse your health is, the more likely you are to be unhappy.
+- 'eduyrs' has a negative coefficient, meaning that the more years of full-time education you complete, the less likely you are to be unhappy (more likely to be happy). 
+- 'ppltrst' has a negative coefficient, meaning that the more trust you have in other people, the more likely you are to be happy rather than unhappy.
+- 'stflife' has a negative coefficient, meaning that being more satisfied with your life increases the probability of being happy rather than being unhappy.
+- 'stfgov' has a negative coefficient, meaning that the more satisfied you are with the government, the more likely you are to be happy rather htan unhappy.
+- 'iphlppl' has a positive coefficient, meaning that the less you identify with finding it important to help and care for other people, the more likely you are to be unhappy.
+- 'livpnt' has a positive coefficient, but it is not significant so we don't interpret it.
+
+To see how the features are coded, see also https://ess-search.nsd.no/en/study/172ac431-2a06-41df-9dab-c1fd8f3877e7. 
+
+
+### Impact of maximizing the specificity instead of maximizing the sum of specificity and sensitivity
+
+Note that we provided the option to put more weight on the specificity than on the sensitivity, such that an even higher specificity could be obtained. This would be at the expense of the accuracy though. We provide an example where we maximize (0.9\*specificity + 0.1\*sensitivity) instead of their sum:
+
+
+```{r}
+# 90% of the weight on specificity, i.e. maximize 0.9*spec + 0.1*sens
+(calc_metrics(fit.lr, X_test, y_test, A = 0.1, B = 0.9))
+```
+
+The graph indicates the optimal threshold, which was 80.6%. The threshold corresponding to maximizing (0.9\*specificity + 0.1\*sensitivity) is very conservative: 97.4%!  The specifcity has increased to 98.3% (from 81.4%)! But the accuracy is only 40%... This is of course not a good solution. It is an illustration of why we optimize the sum of specificity and sensitivity instead. A more reasonable approach would be one where we maximize (0.6\*specificity + 0.4\*sensitivity) as to obtain an even higher specificity.
+
+```{r}
+# 60% of the weight on specificity, i.e. maximize 0.6*spec + 0.4*sens
+(calc_metrics(fit.lr, X_test, y_test, A = 0.4, B = 0.6))
+```
+
+Here our specificity increased from 81.4% to 86.1%, but the sensitivity and thus accuracy are now both below 80%. The threshold corresponding to this is 85.2%. Depending on the needs of the final user of these results these weights can be adjusted.
+
+
+
+
+
+## Sources
+[1] European Social Survey European Research Infrastructure (ESS ERIC). (2022). ESS10 - integrated file, edition 2.2 [Data set]. Sikt - Norwegian Agency for Shared Services in Education and Research. https://doi.org/10.18712/ess10.
+
+The powerpoints and code demonstrations from the course "Collecting and Analyzing Big Data for Social Sciences", taught by professor Cecil Meeusen were consulted to make this report.
+
+ChatGPT was used to help write the explanations of the different models we tested. For all other instances where it was used, it is mentioned explicitly in the text.
