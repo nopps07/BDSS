@@ -6,7 +6,7 @@ output: html_document
 ---
 # 1. Introduction
 
-Artificial Intelligence (AI) has been widely studied and researched over the years, and nowadays the AI technology influences not only businesses but also individuals. Modern society is now closely entangled with the developed technology. Experts have long emphasized that AI has the potential to be a game changer, and this viewpoint has been widely embraced by academia and industry. However, the emergence of ChatGPT, a chatbot developed by OpenAI, has surprised the world with its power, unleashing unforeseen and unpredictable effects. The value of ChatGPT seems to surpass our imaginations. Tremendous amounts of people, even at this current moment, benefits from its incredible advantages [3]. Ironically, despite its vast potential, ChatGPT has also brought about negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria, where scammers exploited generative AI technology to fabricate a fake image of a firefighter holding a victim to trick people into donating money.
+Artificial Intelligence (AI) has been widely studied and researched over the years, and nowadays the AI technology influences not only businesses but also individuals. Modern society is now closely entangled with the developed technology. Experts have long emphasized that AI has the potential to be a game changer, and this viewpoint has been widely embraced by academia and industry. However, the emergence of ChatGPT, a chatbot developed by OpenAI, has surprised the world with its power, unleashing unforeseen and unpredictable effects. The value of ChatGPT seems to surpass our imaginations. Tremendous amounts of people, even at this current moment, benefit from its incredible advantages [3]. Ironically, despite its vast potential, ChatGPT has also brought about negative consequences. One example is found in the tragic earthquake that happened in Turkey and Syria, where scammers exploited generative AI technology to fabricate a fake image of a firefighter holding a victim to trick people into donating money.
 
 ![](fake.png)
 
@@ -29,7 +29,7 @@ According to the authors, experts tend to hold three different positions regardi
 
 In conclusion, we are able to formulate the hypothesis that the sentiment of AI has changed over time, and a major event such as the introduction of ChatGPT may likely facilitate the phenomenon. Since the role of experts in AI does seem to contribute to constructing the public opinions, it is an interesting approach to look at the way those influencial experts perceive the AI in recent times as the outcome could be a valuable hint to understand general opinions. Thus, our study aims to answer the following primary question.
 
-#### _**The sentiment of AI in academia has changed since the launch of ChatGPT**_
+#### _**Did he sentiment of AI in academia change since the launch of ChatGPT?**_
 
 To answer this formulated question, we attempt to apply sentiment analysis to published academic journals specifically related to AI. This research design is expected to provide interesting insights into the emotional tone and subjective opinions expressed in academic papers. Further, it helps us to grasp the sentiment inherent in specific topics and explore the emotional impact of research over the years. 
 
@@ -79,7 +79,7 @@ After finding those 416 researchers, we utilize Scopus APIs to extract the publi
 * Cover Date
 * DoI
 
-Initially, the total number of the papers is 56,939. Next, DoI is required to extract **abstracts**, but some papers do not provide the needed information, thus we remove the missigness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers. The codes below demonstrate all the steps described here.
+Initially, the total number of the papers is 56,939. Next, DoI is required to extract **abstracts**, but some papers do not provide the needed information, thus we remove the missingness, resulting in 42,294 papers in total. Yet, Scopus API fails to correctly read many DoI numbers to extract abstracts. As a result, we succeed in extracting the abstracts of only 8,816 papers. Still, more data cleaning process must take place to filter irrelevant papers. More precisely, many papers are not directly talking about AI, but rather they included AI methods in their research designs. Thus, we filter papers that contain one of the following keywords in the corresponding abstracts: "artificial intelligence, AI, Machine Learning, ML, deep learning". Finally, we obtain 789 papers. The codes below demonstrate all the steps described here.
 
 ```{r eval=FALSE, warning=FALSE, include=TRUE, cache=TRUE}
 # the URL of the Wikipedia page (The list is provided over three pages)
@@ -202,7 +202,7 @@ keywords <- c("artificial intelligence", "AI", "Machine Learning", "ML", "deep l
 scopus_cleaned <- merged_data[grepl(paste(keywords, collapse = "|"), merged_data$abstract), ]
 ```
 
-Even though that the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we conduct one additional data collection in order to enlarge the inventory. 
+Even though the authors of the papers are expected to be _influential_, we conclude that the total data size is not sufficient to obtain meaningful results. Therefore, we conduct one additional data collection in order to enlarge the inventory. 
 
 ## 2.2. Data II: ArXiv
 
@@ -307,7 +307,7 @@ plot_ly(scopus, x = ~year, type = "histogram") %>%
   layout(title = "Amount of Articles per Year", xaxis = list(title = "Year"), yaxis = list(title = "Count"))
 ```
 
-As we can see, the amount of articles per year has increased significantly since 2017. This might indicate the fact that the term "artificial intelligence" has become more popular in recent years. Outliers may cause class imbalance, and hence we check a number of articles per author to evaluate the balance of the data.
+As we can see, the amount of articles per year has increased significantly since 2017. This observation suggests that the term "artificial intelligence" has become more popular in recent years. Outliers may cause class imbalance, and hence we check a number of articles per author to evaluate the balance of the data.
 
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # Group the data by author and count the number of articles
@@ -462,7 +462,7 @@ p <- add_trace(p, x = ~Date, y = ~Rolling_Mean, type = 'scatter', mode = 'lines'
 
 # Add a red vertical line at 30 November 2022
 marker_date <- as.Date("2022-11-30")
-p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 16, line = list(color = 'red'), name = 'ChatGPT Release')
 
 # Display the plot
 p 
@@ -540,7 +540,7 @@ p
 ```
 
 We can see that after the release of ChatGPT there is a slightly increasing trend. Meaning that writers are producing more 'positive' articles than before. Note that the sentiments have been computed using the syuzhet lexicon.
-*** We are now left with the following question: is this increase significant? To answer this question we will perform a t-test. ***
+***We are now left with the following question: is this increase significant? To answer this question we will perform a t-test.***
 We can also see negative as well as positive spikes in the sentiment score. Let's take a look at these outliers.
 
 ## 3.2. Deeper Analysis
@@ -632,7 +632,7 @@ We can somewhat see the same trend for the 14-day Rolling Mean as when using the
 
 ### SentiWordNet:
 
-The Sentiment WordNet is a lexical resource for opinion mining. It is built on top of WordNet, a lexical database for the English language. 
+The Sentiment WordNet is a lexical resource for opinion mining. It is built on top of WordNet, a lexical database for the English language that organizes words into synsets (synonym sets). 
 SentiWordNet assigns to each synset of WordNet three sentiment scores: positivity, negativity, objectivity. Source: https://github.com/aesuli/SentiWordNet/blob/master/papers/LREC06.pdf 
 **Do WE INCLUDE THIS OR NOT ?**
 
@@ -684,9 +684,9 @@ get_sentiment_objectivity_score = function(text){
 get_sentiment_objectivity_score(article_may_13$abstract)
 ```
 
-We can also see a fairly Neutral score using SentiWordNet. However this result is nothing without comparing it to the results with other abstracts.
+We can also see a fairly Neutral score using SentiWordNet. However this result is nothing without comparing it to the results for other abstracts.
 
-### 3.2.2. Outliers Removal
+### 3.2.2. Outlier Removal
 
 Given that we get the same outliers using different lexicon techniques, it is safe to say that the problem does not lie within method used for calculating sentiments.
 Luckily we only have 6 days over the period of 2 years where this happens so we will just remove these outliers from our dataset.
@@ -1040,7 +1040,7 @@ dim(DTM)
 
 To find the optimal number of topics, we set a range of numbers from 1 to 20 and select the following two evaluation methods ('CaoJuan2009' and 'Deveaud2014') to assess the quality of each model. Ideally, the optimal topic numbers exhibit low CaoJuan2009 and high Deveaud2014 values. Again, the choice of the methods is motivated the aforementioned tutorial.
 
-**Note:** the following code is computationally very expensive since every model needs to be constrcuted and evaluated.
+**Note:** the following code is computationally very expensive since every model needs to be constructed and evaluated.
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 
@@ -1201,7 +1201,7 @@ generate_topic_plot_nrc <- function(t) {
   
   # Add a red vertical line at 30 November 2022
   marker_date <- as.Date("2022-11-30")
-  p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 10, line = list(color = 'red'), name = 'ChatGPT Release')
+  p <- add_segments(p, x = marker_date, xend = marker_date, y = 0, yend = 12, line = list(color = 'red'), name = 'ChatGPT Release')
   
   # Return the plot
   return(p)
