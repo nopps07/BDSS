@@ -208,7 +208,7 @@ job_sat = ESS %>%
   mutate(rel_freq = frequency / sum(frequency))
 print(job_sat, n=Inf)
 ```
-For job satisfaction, 44% of the individuals indicated 'Not Applicable' (66). These will be individuals that are unemployed, and they are very diverse: children and students who are not yet working, retired people, people struggling to find a job, ... Using imputation would in this case also introduce bias, so for simplicity we won't include the variable "jbstfm" in our models either.
+For job satisfaction, 44% of the individuals indicated 'Not Applicable' (66). These will be individuals that are unemployed, and they are very diverse: children and students who are not yet working, retired people, people struggling to find a job, etc. Using imputation would in this case also introduce bias, so for simplicity we will not include the variable "jbstfm" in our models either.
 
 ```{r}
 # drop household income and job satisfaction, next drop the missing values
@@ -222,7 +222,7 @@ Now that we have dropped the missing values, let's check if we didn't lose too m
 # How much % of the original observations are left after dropping missing values?
 nrow(extracted_features2)/nrow(ESS)
 ```
-Around 88% of the total observations of the original dataset are left. Hopefully we can get this to 90% after selecting the final predictors we will include in our model. We use correlation analysis o check which predictors are best to include in our model. In other words, we calculate the correlation between each predictor and the target varible to see which predictors are most strongly related to the target variable.
+Around 88% of the total observations of the original dataset are left. Hopefully we can get this to 90% after selecting the final predictors we will include in our model. We use correlation analysis to check which predictors are best to include in our model. In other words, we calculate the correlation between each predictor and the target variable to see which predictors are most strongly related to the target variable.
 
 ```{r}
 for (predictor in predictors) {
@@ -232,7 +232,7 @@ for (predictor in predictors) {
   cat("Correlation between happiness and", predictor,":", correlation, "\n")
 }
 ```
-For some predictors, the correlation with the target variable is very close to 0. Therefore, we will not include these features in our model:
+For some predictors, the correlation with the target variable is very close to 0. Therefore, we will not include the following features in our model:
 
 - dscrgrp = Member of a group discriminated against in this country
 - feethngr = Feel part of same race or ethnic group as most people in country
@@ -241,7 +241,7 @@ For some predictors, the correlation with the target variable is very close to 0
 - ipsuces = Important to be successful and that people recognise achievements
 - rlgblg = Belonging to particular religion or denomination
 
-We also have to make sure that our predictors are independent, so they can't be highly correlated with each other. There are several reasons why having correlated predictors in a model can be problematic, we asked ChatGPT to list them:
+Moreover, we have to make sure that our predictors are independent, so they can't be highly correlated with each other. Put differently, we should avoid multicollinearity. There are several reasons why having correlated predictors in a model can be problematic, we asked ChatGPT to list them:
 
 - *Overfitting:* When two or more predictors are highly correlated, they can essentially be duplicating each other's predictive power. This can lead to overfitting, where the model performs well on the training data but poorly on new, unseen data.
 - *Model interpretation:* When predictors are highly correlated, it can be difficult to interpret the coefficients of the model. For example, if two predictors are strongly correlated, it may be difficult to tell which one is having a stronger effect on the target variable.
@@ -277,7 +277,7 @@ We ask ChatGPT: "Is it a bad thing if one of my predictors is highly correlated 
 "No, it is not necessarily a bad thing if one of your predictors is highly correlated with your target variable. In fact, a high correlation between a predictor and target variable can indicate a strong relationship between the two, which can potentially improve the accuracy of your machine learning model.
 However, having a predictor that is too highly correlated with the target variable (e.g., a correlation coefficient of 0.9 or higher) can lead to some potential issues such as overfitting. When a predictor is highly correlated with the target variable, the model may rely too heavily on this variable to make predictions, leading to overfitting. Therefore, it's important to carefully evaluate the correlation between your predictors and target variable, and consider the potential risks of overfitting."
 
-We have fitted all the models both with and without life satisfaction and saw that the specificity dropped a lot when excluding it. This metric is most important to us (more about this later), so we decide to include "jbstfm" in our model. 
+We have fitted all the models both with and without life satisfaction and confirmed that the specificity dropped a lot when excluding it. This metric is most important to us (we explain more about this later), so we decide to include "jbstfm" in our model. 
 
 We repeat the previous steps with the features that we decide to include in our model.
 ```{r}
@@ -300,7 +300,7 @@ dataframe <- ESS %>%
   drop_na() 
 nrow(dataframe)/nrow(ESS) 
 ```
-Around 92% of the original observations in the ESS dataset are kept.
+Around 92% of the original observations in the ESS dataset are kept, meaning that we do not lose data information to a large extent.
 
 
 ```{r}
@@ -316,7 +316,7 @@ for (predictor in important_predictors) {
 corrplot.mixed(cor(dataframe), tl.pos = "lt", number.cex = 0.65)
 ```
 
-This already looks a lot better. Not that we can already expect that life satisfaction will be our most important predictor because it has such a high correlation with the target variable. 
+The variable selection process results in a lot better structure. Note that we can already expect that life satisfaction will be our most important predictor because it has such a high correlation with the target variable. 
 
 The last thing we still have to do now, is recode our target variable into 2 categories "happy" (the positive class) and "unhappy" (the negative class). We denote the happy individuals with a 1 and the unhappy individuals with a 0, according to the cut-off value as discussed before.
 ```{r}
@@ -337,7 +337,7 @@ for (predictor in important_predictors) {
 corrplot.mixed(cor(dataframe), tl.pos = "lt", number.cex = 0.65)
 ```
 
-All correlations are still more or less the same. The only one that changed quite a lot is the correlation between job satisfaction and happiness, which dropped from about 0.7 to 0.54. A next step could be to dichotimize the target variable in three categories instead of two. However, we will stick with the binary response in order to increase interpretability. 
+All correlations are still more or less the same. The only one that changed notably is the correlation between job satisfaction and happiness, which dropped from about 0.7 to 0.54. A next step could be to dichotimize the target variable in three categories instead of two. For instance, this would result in "unhappy, neutral, happy". However, we will stick with the binary response in order to increase interpretability. 
 
 In order to not get any errors while fitting the models, we use different values than 1 and 0 to indicate our classes. We name them "happy" and "unhappy" instead. 
 
@@ -358,7 +358,7 @@ dim(dataframe)
 ```
 
 ## 2. Model selection, training and validation
-Now that we selected the final predictors to include in our model, we can start building our model. We split the dataframe in a training and test set:
+Now that we have selected the final predictors to include in our model, we can start building our model. We split the dataframe in a training and test set:
 
 ```{r}
 # 80% of the observations are training data, 20% test data
@@ -386,7 +386,7 @@ We will use the following supervised machine learning methods to build a model f
 - **Linear Discriminant Analysis (LDA)** 
 - **Random Forests (RF)** 
 
-To evaluate the performance of the different methods, there exist multiple metrics. Some that we will look at are:
+To evaluate the performance of the different methods, there exists multiple metrics. Some that we will look at are:
 
 - *Accuracy*, which is defined as the proportion of correctly classified observations. While it provides a simple and intuitive measure of the model's overall performance, it can be misleading in our situation because the classes are imbalanced. This means that the happy class has many more observations than the unhappy class (which made up only about 18% of all observations, see also section 1). For example, a classifier that always predicts an individual to be happy will achieve an accuracy of about 82%, even though it is not useful in practice. Therefore, we will not focus so much on this metric.
 - *ROC*, which stands for Receiver Operating Characteristic, is a graphical representation of the performance of a binary classifier. It plots the true positive rate (sensitivity) against the false positive rate (1 - specificity) at different classification thresholds. The ROC curve provides a visual depiction of the trade-off between sensitivity and specificity for different threshold settings.
@@ -399,9 +399,9 @@ To modify your classifier to maximize specificity, you need to adjust the decisi
 
 To maximize specificity, you need to adjust the *decision threshold*. This means that you will only classify an instance as positive (happy) if the predicted probability of belonging to the positive (happy) class is greater than the new threshold. By increasing the threshold, you will reduce the number of false positives (i.e., instances that are classified as happy but are actually unhappy) at the cost of potentially increasing the number of false negatives (i.e., instances that are classified as unhappy but are actually happy).
 
-However, we could always get the specificity to 1 by just classifying all individuals as negative. Of course, this isn't useful. So instead of just maximizing the specificity, we will maximize the sum of specificity and sensitivity. The threshold corresponding to this is called the so-called optimal decision threshold. To find it, we plot the ROC curve and identify the point closest to the top-left corner of the plot. This point represents the best trade-off between correctly identifying positive instances (happy individuals) and correctly identifying negative instances (unhappy individuals).
+However, we could always get the specificity to 1 by just classifying all individuals as negative. Of course, this isn't useful. So instead of just maximizing the specificity, we will maximize the sum of specificity and sensitivity. The threshold corresponding to this is the so-called ***optimal decision threshold***. To find it, we plot the ROC curve and identify the point closest to the top-left corner of the plot. This point represents the best trade-off between correctly identifying positive instances (happy individuals) and correctly identifying negative instances (unhappy individuals).
 
-The function below does the following for a given model fitted on the training data (you also have to specifcy the test data):
+The function below does the following for a given model fitted on the training data (you also have to specify the test data):
 
 - plots the ROC curve 
 - calculates: 
@@ -449,7 +449,7 @@ We will include 10-fold cross-validation when fitting our models. In the words o
 control = trainControl(method="cv", number=10, classProbs = TRUE, summaryFunction = twoClassSummary)
 ```
 
-For all methods, we will center and scale all the predictors. Some of them range from 1-5, some from 0-10, others can take on multiple values, ... This can lead to variable magnitude bias: those with larger scales can dominate the model's learning process and have a disproportionate impact on the results. Standardizing our variables ensures that all veriables contribute equally to the model by putting them on a similar scale. 
+For all methods, we will center and scale all the predictors. Some of them range from 1-5, some from 0-10, others can take on multiple values, ... This can lead to variable magnitude bias: those with larger scales can dominate the model's learning process and have a disproportionate impact on the results. Standardizing our variables ensures that all variables contribute equally to the model by putting them on the same scale. 
 
 ### 2.1 Naive Bayes
 Naive Bayes is a probabilistic classifier that assumes independence among predictor variables. In the context of predicting happiness, Naive Bayes would estimate the probability of a person being happy or unhappy based on the values of the (nine) predictor variables. It calculates the likelihood of each class given the predictor values using Bayes' theorem and selects the class with the highest probability as the predicted happiness level.
@@ -463,7 +463,7 @@ metrics.NB = calc_metrics(fit.NB, X_test, y_test)
 metrics.NB
 ```
 
-Fitting the model with the default threshold of 0.5, NB obtains a specificity of only 29.9%. Using the optimal threshold of 0.979 for this classifier, the specificity increases to 81.8%. The accuracy only drops 5% from about 85% to ca. 80% when changing the threshold, and as explained before this is a trade-off we are happy to make to increase the specificity, the metric most of interest to us. 
+Fitting the model with the default threshold of 0.5, NB obtains a specificity of only 29.9%. Using the optimal threshold of 0.979 for this classifier, the specificity increases to 81.8%. The accuracy only drops 5% from about 85% to ca. 80% when changing the threshold, and as explained before this is a reasonable trade-off that we feel happy to make in order to increase the specificity, which is the most interesting metric. 
 
 
 ### 2.2 Logistic Regression
@@ -517,7 +517,7 @@ metrics.lda = calc_metrics(fit.lda, X_test, y_test)
 metrics.lda
 ```
 
-For LDA, the specificity is only 50.2% with the default decision threshold. Using the optimal threshold of 0.846, we obtain a specificity of 83.4! This is the highest value so far. The accuracy is still 81.6%, so we don't even have to trade off that much accuracy. 
+For LDA, the specificity is only 50.2% with the default decision threshold. Using the optimal threshold of 0.846, we obtain a specificity of 83.4, which is the highest value so far. The accuracy is still 81.6%, so we don't even have to trade off that much accuracy. 
 
 
 ### 2.6 Random Forests
@@ -633,13 +633,13 @@ ggplot(results.df, aes(x = Classifier, y = Accuracy)) +
 
 ```
 
-As mentioned before, accuracy is not a good metric to evaluate the performance of our models since our data is unbalanced. However, a sufficiently high accuracy is of course required because we don't want to make too many mistakes. The accuracy for CART is the highest with 86%, and the accuracy of KNN is the lowest with 78.4%. However, all methods have an accuracy of about 80%, which is sufficiently high. 
+As mentioned before, accuracy is not a good metric to evaluate the performance of our models since our data is unbalanced. However, a sufficiently high accuracy is of course required since minimizing mistakes is always necessary. The accuracy for CART is the highest with 86%, and the accuracy of KNN is the lowest with 78.4%. However, all methods have an accuracy of about 80%, which is sufficiently high. 
 
 ## 4. Interpretation and conclusions
 
 ### Choosing a final model
 
-The priority for us is mainly obtaining a high specificity, while maintaining a reasonably high accuracy. We obtain the highest specificities for LDA, logistic regression and NB. However, the optimal threshold for NB is extremely high, making it too conservative in this instance. The AUC is the highest for LDA and LR, both having the exact same values (0.886). As we also strive for an easily interpretable model, we conclude that the **logistic regression model** meets our needs in the best way. In addition to that, this model is also very efficient in terms of computation time.      
+Repeatedly, the priority is mainly obtaining a high specificity, while maintaining a reasonably high accuracy. We obtain the highest specificities for LDA, logistic regression and NB. However, the optimal threshold for NB is extremely high, making it too conservative in this instance. The AUC is the highest for LDA and LR, both having the exact same values (0.886). As we also strive for an easily interpretable model, we conclude that the **logistic regression model** meets our needs in the best way. In addition to that, this model is also very efficient in terms of computation time.      
 
 Let us now take a deeper look into the results of the LR model.
 
