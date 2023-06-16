@@ -634,57 +634,9 @@ Let's repeat our steps to disable the visibility of the blue curve, but now zoom
 
 The Sentiment WordNet is a lexical resource for opinion mining. It is built on top of WordNet, a lexical database for the English language that organizes words into synsets (synonym sets). 
 SentiWordNet assigns to each synset of WordNet three sentiment scores: positivity, negativity, objectivity. Source: https://github.com/aesuli/SentiWordNet/blob/master/papers/LREC06.pdf 
-**Do WE INCLUDE THIS OR NOT ?**
 
-```{r eval=FALSE, include=TRUE, cache=TRUE}
-# Read in the SentiWordNet scores
-senti_scores <- read.delim('SentiWordNet_3.0.0.txt', header = TRUE, comment.char = '#')
-
-# Compute the objectivity score
-senti_scores$ObjScore <- 1 - (senti_scores$PosScore + senti_scores$NegScore)
-
-senti_scores
-```
-
-```{r eval=FALSE, include=TRUE, cache=TRUE}
-# function for sentiment of a word
-get_sentiment_score <- function(word) {
-  score <- senti_scores[grepl(paste0("\\b", word, "\\b"), senti_scores$SynsetTerms), c("PosScore", "NegScore")]
-  return(ifelse(nrow(score) > 0, score$PosScore - score$NegScore, NA))
-}
-
-# function for objectivity of a word
-get_objectivity_score <- function(word) {
-  scores <- senti_scores[grepl(paste0("\\b", word, "\\b"), senti_scores$SynsetTerms), "ObjScore"]
-  return(ifelse(length(scores) > 0, scores, NA))
-}
-
-# function for sentiment & objecticity of an abstract
-get_sentiment_objectivity_score = function(text){
-    # Tokenize the abstract
-  tokens <- data.frame(abstract = abstract) %>%
-    unnest_tokens(word, abstract)
-  
-  # Get sentiment and objectivity scores for each word
-  tokens <- tokens %>%
-    mutate(sentiment = map_dbl(word, get_sentiment_score),
-           objectivity = map_dbl(word, get_objectivity_score))
-  
-  # Aggregate the scores for the abstract
-  abstract_score <- tokens %>%
-    summarise(sentiment = mean(sentiment, na.rm = TRUE),
-              objectivity = mean(objectivity, na.rm = TRUE))
-  
-  # Print the scores
-  return(abstract_score)
-}
-```
-
-```{r eval=FALSE, include=TRUE, cache=TRUE}
-get_sentiment_objectivity_score(article_may_13$abstract)
-```
-
-We can also see a fairly Neutral score using SentiWordNet. However this result is nothing without comparing it to the results for other abstracts.
+After having tried out the SentiWordNet, we decided not to include it in our analysis. The reason for this is that it is hard to work with in R and the objectivity score only depends on the positivity and negativity score. 
+This means that we do not get any more information out of it compared to the other lexicons. 
 
 ### 3.2.2. Outlier Removal
 
