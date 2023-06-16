@@ -537,9 +537,12 @@ p
 
 ```
 
-We can see that after the release of ChatGPT there is a slightly increasing trend. Meaning that writers are producing more 'positive' articles than before. Note that the sentiments have been computed using the syuzhet lexicon.
-***We are now left with the following question: is this increase significant? To answer this question we will perform a t-test.***
-We can also see negative as well as positive spikes in the sentiment score. Let's take a look at these outliers.
+We see some negative as well as positive spikes in the sentiment scores. In the next section, we will take a closer look at these outliers. 
+
+To not make them dominate the y-axis scale of the plot, we can interact with the graph. Click and drag your mouse to select a specific range of sentiment-score values (y-axis), e.g. 5 to 6.5, to be shown. This allows us to focus on a more narrow range and gain better insights into possible trends. 
+
+After doing this, click on 'the Daily Average NRC' in the legend (blue line). Now we can clearly see that the rolling mean displays a slightly increasing trend after the release of ChatGPT. Meaning that writers are producing more 'positive' articles than before. Note that the sentiments have been computed using the syuzhet lexicon.
+We are now left with the following question: is this increase significant? To answer this question we will perform a t-test later on.
 
 ## 3.2. Deeper Analysis
 
@@ -625,7 +628,7 @@ p
 
 ```
 
-We can somewhat see the same trend for the 14-day Rolling Mean as when using the NRC lexicon, but it is softer. We also notice that the outliers are present in the VADER lexicon as well.
+Let's repeat our steps to disable the visibility of the blue curve, but now zooming in on the y-range 0.5 to 0.65. We can somewhat see the same trend for the 14-day Rolling Mean as when using the NRC lexicon, but it is softer. We also notice that the outliers are present in the VADER lexicon as well.
 
 ### SentiWordNet:
 
