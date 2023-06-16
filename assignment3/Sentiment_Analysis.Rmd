@@ -549,7 +549,7 @@ We are now left with the following question: is this increase significant? To an
 By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these scored higly positive or negative. 
 This is due to the fact that sometimes only a few words from the abstracts have a match with the lexicon. This causes the overall sentiment score to be very high or low if those words are very positive or negative. 
 
-Choosing the right lexicon is of cucial importance when performing sentiment analysis. For this reason we decided to try out different lexicons and see which one has the most word-matches with our abstracts.
+Choosing the right lexicon is of crucial importance when performing sentiment analysis. For this reason we decided to try out different lexicons and see which one has the most word-matches with our abstracts.
 Eventually the most suitable lexicon for our analysis seemed to be the NRC lexicon. When looking at the example below, the `Bing` and `Afinn` lexicons both only have a match with 2 words and using the `Loughran` lexicon only one word.
 The `NRC` lexicon is the clear winner here wih 17 mathes.
 
