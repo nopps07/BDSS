@@ -66,9 +66,11 @@ library(syuzhet)
 
 # 2. Data
 
+All the dataset used in this research can be downloaded in this ["Git repo"](https://github.com/nopps07/BDSS)
+
 ## 2.1. Data I: Scopus
 
-Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the meaning of the AI experts. For instance, it might not be proper to say that publishing one article makes you an expert. To answer this, we extract the researchers listed in ["Artificial Intelligence researchers"]([url](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages)) in Wikipedia as those researchers are somehow proven to be influential considering their contribution to the field.
+Our hypothesis assumes that AI experts' ideas influence public opinions, and hence first thing we need to consider is to correctly define the meaning of the AI experts. For instance, it might not be proper to say that publishing one article makes you an expert. To answer this, we extract the researchers listed in ["Artificial Intelligence researchers"](https://en.wikipedia.org/w/index.php?title=Category:Artificial_intelligence_researchers&pagefrom=Krizhevsky%2C+Alex%0AAlex+Krizhevsky#mw-pages) in Wikipedia as those researchers are somehow proven to be influential considering their contribution to the field.
 
 After finding those 416 researchers, we utilize Scopus APIs to extract the published papers of the researchers, including the following elements:
 
