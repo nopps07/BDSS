@@ -756,8 +756,13 @@ after = sample(arxiv_filtered_after$nrc_sen,5000)
 
 # plot histogram of sentiment scores
 hist(before, breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
+```
+  
+```{r include=TRUE, cache=TRUE}
 hist(after,breaks = 50, main = "Histogram of Sentiment Scores", xlab = "Sentiment Score")
 ```
+
+
 The assumption of normality is met. Note that this is a result of the Central Limit Theorem, which states that the sampling distribution of the mean of any independent, random variable will be normal or nearly normal, if the sample size is large enough.
 We know that the observations are independent of one another, so let's check the assumption of equal variance.
 
