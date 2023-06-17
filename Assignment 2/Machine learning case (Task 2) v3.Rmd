@@ -14,9 +14,6 @@ The aim of this report is to use (supervised) machine learning approaches to pre
 First, we must clean and prepare the data for analysis. Next, we choose relevant features to include in our models. Then we can train and test different machine learning models. Finally, we evaluate the performance of the models and interpret the results.
 
 ```{r}
-# Set working directory
-setwd("C:/Users/lenne/Downloads/ESS10")
-
 # Remove all objects from the current workspace
 rm(list = ls())
 
@@ -38,7 +35,7 @@ library(pROC) #ROC Curves
 ## 1. Exploratory data analysis, pre-processing and feature selection
 ```{r}
 # Load in the data
-ESS <- read.csv("ESS10.csv")
+ESS <- read.csv("C:/Users/lenne/Downloads/ESS10/ESS10.csv")
 dim(ESS)
 ```
 The dataset contains 33.351 observations and 586 variables. We want to include around 10 relevant features in a model to predict the variable "happy". Before selecting features, let's first explore our target variable more in depth.
