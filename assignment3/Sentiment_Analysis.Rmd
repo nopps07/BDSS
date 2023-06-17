@@ -983,7 +983,7 @@ DTM <- DocumentTermMatrix(processedCorpus, control = list(bounds = list(global =
 # have a look at the number of documents and terms in the matrix
 dim(DTM)
 ```
-
+  
 
 ### 3.4.3. Finding the optimal topic numbers
 
@@ -1186,7 +1186,7 @@ Clearly, the results of Topic 14, 15, and 18 show that the sentiment score of th
 
 # 4. Conclusion
 
-The research started with a goal to answer the following question: "Did the sentiment of AI in academia change since the launch of ChatGPT?". In particular, we collected the abstracts of the published academic paper, talking about artificial intelligence, available in Scopus and Arxiv. Due to the size of the data, the arxiv acted as the main data source for further analyses. Specifically, we applied sentiment analysis in order to answer the primary research question. The result indicates that, according to the method and the data, the sentiment in AI has increased over time. The trend is more obvious in the recent period of time, and the statistical significance test supported that the birth of ChatGPT did boost up the speed of the change. Besides, topic modelling discovered that the data can be divided into a group of communities, which display different patterns of sentiment change. The trendy topics exhibit more sharply increasing pattern in their sentiments.
+The research started with the goal to answer the following question: "Did the sentiment of AI in academia change since the launch of ChatGPT?". In particular, we collected the abstracts of the published academic paper, talking about artificial intelligence, available in Scopus and Arxiv. Due to the size of the data, the arxiv acted as the main data source for further analyses. Specifically, we applied sentiment analysis in order to answer the primary research question. The result indicates that, according to the method and the data, the sentiment in AI has increased over time. The trend is more obvious in the recent period of time, and the statistical significance test supported that the birth of ChatGPT did boost the speed of the change. Besides, topic modelling discovered that the data can be divided into a group of communities, which display different patterns of sentiment change. The trendy topics exhibit a more sharply increasing pattern in their sentiments.
 
 Nonetheless, it is crucial to pinpoint the limitations of our research design and propose future research approaches that could be taken. Despite the usefulness of sentiment analysis, its application is more suitable for general text data like social media comments, reviews, and emails. In other words, sentiment analysis is fundamentally designed to determine the emotional tone of the message, which could be lacking in abstracts of academic papers. Normally, abstract texts are more declarative with many technical jargon which does not entail detectable emotions. As noted at the beginning of the analysis, none of the common lexicons is fundamentally designed to be used for this specific type of text. Recently, many AI influencers are active on social media channels such as LinkedIn and Twitter, and the used texts in such channels likely contain less formal concepts of words which would eventually be appropriate for sentiment analysis.
 
