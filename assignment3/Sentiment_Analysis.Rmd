@@ -1200,3 +1200,4 @@ AI technology is no longer a special resource that is only available to special 
 2. Neri, Hugo & Cozman, Fabio. (2020). The role of experts in the public perception of risk of artificial intelligence. AI & SOCIETY. 35. 1-11. 10.1007/s00146-019-00924-9. 
 3. Twelverays (2023, March 17). Benefits of ChatGPT
 . https://twelverays.agency/blog/benefits-of-chatgpt
+4. OpenAI. (2023). ChatGPT (April 20 version) [Large language model]. https://chat.openai.com/ (Helped us create the plotly graphs we needed for our analysis)
