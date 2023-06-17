@@ -217,8 +217,6 @@ However, for our particular use case, we are only interested in the abstracts of
 
 After having filtered the data on the same keywords as the Scopus dataset, we are left with a total of 80,973 articles. Even though most of these articles are not peer-reviewed, we believe that this dataset will still provide us with valuable insights on the public perception of AI. Yet, this approach might remain as a limitation of our research design since it is difficult to conclude all these articles are influential.
   
-**I don't know if this runs or not, translated code from python to R, but 8GB of RAM not enough to open the json in R on my pc** - **Gunho: We let it not run. We just show that it is the way to get 'arxiv.csv' file**
-
 ```{r warning=FALSE, eval=FALSE, include=TRUE}
 FILE <- 'data/arxiv-metadata-oai-snapshot.json'
 
@@ -349,9 +347,6 @@ plot_ly(desc_counts, x = ~description, y = ~count, type = "bar") %>%
 
 Most of the abstracts come from articles and conference papers.
 
-If we now take a look at the arxiv data, we can see that the amount of articles per year is much more balanced. 
-With this dataset will be able to answer the research question more accurately because we have more than 10,000 articles in the years before and after the release of ChatGPT.
-
 ```{r warning=FALSE, include=TRUE, cache=TRUE}
 # create a year column
 arxiv$year <- format(arxiv$update_date, "%Y")
@@ -360,6 +355,7 @@ plot_ly(arxiv, x = ~year, type = "histogram") %>%
   layout(title = "Amount of Articles per Year", xaxis = list(title = "Year", automargin = TRUE), yaxis = list(title = "Count", automargin = TRUE, margin = list(l = 50, r = 50, b = 50, t = 50, pad = 4)), bargap = 0.1)
 ```
 
+If we now take a look at the arxiv data, we can see that the amount of articles per year is much more balanced, which is more appropriate to conduct research. Besides, this dataset contains more than 10,000 articles **before and after the release of ChatGPT** and hence it should be able to answer the formulated research question more accurately.
 
 # 3. Sentiment Analysis
 
@@ -546,14 +542,10 @@ We are now left with the following question: is this increase significant? To an
 
 ## 3.2. Deeper Analysis
 
-By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these scored higly positive or negative. 
-This is due to the fact that sometimes only a few words from the abstracts have a match with the lexicon. This causes the overall sentiment score to be very high or low if those words are very positive or negative. 
+By looking at one of the outliers the problem becomes clear. The spikes are caused by days on which only a few articles were published and these sentiment scores are either highly positive or negative. This is due to the fact that sometimes only a few words from the abstracts have a match with the lexicon, causing the overall sentiment score to be very high or low if those words are very positive or negative. 
 
 Choosing the right lexicon is of crucial importance when performing sentiment analysis. For this reason we decided to try out different lexicons and see which one has the most word-matches with our abstracts.
-Eventually the most suitable lexicon for our analysis seemed to be the NRC lexicon. When looking at the example below, the `Bing` and `Afinn` lexicons both only have a match with 2 words and using the `Loughran` lexicon only one word.
-The `NRC` lexicon is the clear winner here wih 17 mathes.
-
-According to ChatGPT, recommended lexicons for analyzing research papers are: NRC, VADER, LIWC and SentiWordNet. LIWC is pay-only. So let's try VADER and Sentiwordnet !
+Eventually the most suitable lexicon for our analysis seemed to be the `NRC` lexicon. When looking at the example below, the `Bing` and `Afinn` lexicons both only have a match with 2 words and using the `Loughran` lexicon only one word. The `NRC` lexicon is the clear winner compared to the rest with 17 matches. According to ChatGPT, recommended lexicons for analyzing research papers are: NRC, VADER, LIWC (pay-only) and SentiWordNet. Thus, we proceed with the `VADER`, `SentiWordNet` and `NRC`.
 
 ```{r include=TRUE, cache=TRUE}
 # Filter the data to include only the article from May 1, 2022
@@ -587,7 +579,7 @@ print(word_sentiment)
 
 VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool that is specifically attuned to sentiments expressed in social media. Considering the characteristics of our data, it is yet unclear if this lexicon performs well on the data. Nonetheless, we proceed the demonstration for correct evaluation.
 
-**Note: computing sentiment scores using the VADER lexicon is very intensive**
+**Note**: computing sentiment scores using the VADER lexicon is very intensive.
 
 ```{r eval=FALSE, include=TRUE, cache=TRUE}
 arxiv$vader_sen <- NA
@@ -1008,9 +1000,11 @@ FindTopicsNumber_plot(result)
 
 ![](topic.png){width="682"}
 
-The result indicates that the desired number of topics is 20, and hence we proceed the analysis with this number. Now, we are able to build the Latent Dirichlet Allocation (LDA) model, that is trained on the DTM using the Gibbs sampling with 1000 iterations. Note that we do not intend to experiment with other sampling methods and different hyperparameters as it is not the primary focus of the analysis.
+The result indicates that the desired number of topics is 20, and hence we proceed with the analysis with this number. A question might arise the size of 14 may be a better choice than 20 since the convergence seems to begin at the point of 14. This size selection does not come with an absolute measure that allows us to precisely determine an optimal number. Also, the referred tutorial exhibits a similar pattern in its result and still proceeds with the size of 20. Hence, we do not intend to conduct additional investigations to justify the selected size. Now, we are able to build the Latent Dirichlet Allocation (LDA) model, which is trained on the DTM using the Gibbs sampling with 1000 iterations. Note that we do not intend to experiment with other sampling methods and different hyperparameters as it is not the primary focus of the analysis.
 
 ### 3.4.4. LDA model
+
+**Note**: the code below is computationally very intensive. It might take more than an hour depending on the performance of your device.
 
 ```{r lda, cache=TRUE, include=TRUE}
 # number of topics
